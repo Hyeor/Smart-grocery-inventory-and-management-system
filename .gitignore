@@ -1,0 +1,30 @@
+# Build artifacts
+build/
+*.o
+*.exe
+*.dll
+*.so
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CMake
+CMakeFiles/
+cmake_install.cmake
+CMakeCache.txt
+
+# Temporary files
+*.tmp
+*.log
+
+# Dependencies
+libraries/
+
+# OS files
+Thumbs.db
+.DS_Store
