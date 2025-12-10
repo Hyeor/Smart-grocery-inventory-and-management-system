@@ -27,6 +27,9 @@ public:
     
     // Admin menu for CRUD operations
     void adminCRUDMenu(Database& db);
+    
+    // Inventory page with full CRUD menu
+    void inventoryPage(Database& db);
 };
 
 #endif

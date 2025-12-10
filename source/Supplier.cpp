@@ -37,7 +37,7 @@ void SupplierManager::addSupplier(Database& db) {
     string query = "INSERT INTO Supplier (supplier_name, contact_person, phone, status) VALUES ('" 
                    + supplierName + "', '" + contactPerson + "', '" + phone + "', 'Active')";
     db.executeQuery(query);
-    cout << "\n✓ Supplier Added Successfully." << endl;
+    cout << "\n[OK] Supplier Added Successfully." << endl;
 }
 
 // READ - View all suppliers
@@ -78,7 +78,7 @@ void SupplierManager::viewSupplier(Database& db, int supplierID) {
         cout << "Status: " << row[4] << endl;
         cout << "------------------------" << endl;
     } else {
-        cout << "✗ Supplier not found." << endl;
+        cout << "[ERROR] Supplier not found." << endl;
     }
 }
 
@@ -136,7 +136,7 @@ void SupplierManager::updateSupplier(Database& db) {
     }
     
     db.executeQuery(query);
-    cout << "✓ Supplier Updated Successfully." << endl;
+    cout << "[OK] Supplier Updated Successfully." << endl;
 }
 
 // DELETE - Delete supplier
@@ -158,7 +158,7 @@ void SupplierManager::deleteSupplier(Database& db) {
     if (confirm == 'y' || confirm == 'Y') {
         string query = "DELETE FROM Supplier WHERE supplier_id = " + to_string(supplierID);
         db.executeQuery(query);
-        cout << "✓ Supplier Deleted Successfully." << endl;
+        cout << "[OK] Supplier Deleted Successfully." << endl;
     } else {
         cout << "Deletion cancelled." << endl;
     }
@@ -204,6 +204,91 @@ void SupplierManager::supplierMenu(Database& db) {
         }
         else if (choice == 5) {
             deleteSupplier(db);
+        }
+        else if (choice == 6) {
+            break;
+        }
+    }
+}
+
+// Supplier Page - Full CRUD with clean page layout
+void SupplierManager::supplierPage(Database& db) {
+    int choice;
+    while (true) {
+        system("cls");
+        cout << "\n";
+        cout << "========================================" << endl;
+        cout << "    SUPPLIER MANAGEMENT SYSTEM          " << endl;
+        cout << "========================================" << endl;
+        cout << "\nOperations:" << endl;
+        cout << "1. Add New Supplier" << endl;
+        cout << "2. View All Suppliers" << endl;
+        cout << "3. View Supplier Details" << endl;
+        cout << "4. Update Supplier" << endl;
+        cout << "5. Delete Supplier" << endl;
+        cout << "6. Back to Dashboard" << endl;
+        cout << "========================================" << endl;
+        cout << "Select option: ";
+        
+        while (!(cin >> choice) || choice < 1 || choice > 6) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Invalid choice! Select 1-6: ";
+        }
+        cin.ignore(10000, '\n');
+
+        if (choice == 1) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          ADD NEW SUPPLIER              " << endl;
+            cout << "========================================\n" << endl;
+            addSupplier(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+        else if (choice == 2) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          VIEW ALL SUPPLIERS            " << endl;
+            cout << "========================================\n" << endl;
+            viewSuppliers(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+        else if (choice == 3) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "        VIEW SUPPLIER DETAILS           " << endl;
+            cout << "========================================\n" << endl;
+            int supplierID;
+            cout << "Enter Supplier ID: ";
+            while (!(cin >> supplierID) || supplierID <= 0) {
+                cin.clear();
+                cin.ignore(10000, '\n');
+                cout << "Invalid input! Enter valid Supplier ID: ";
+            }
+            cin.ignore(10000, '\n');
+            viewSupplier(db, supplierID);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+        else if (choice == 4) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          UPDATE SUPPLIER              " << endl;
+            cout << "========================================\n" << endl;
+            updateSupplier(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+        else if (choice == 5) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          DELETE SUPPLIER              " << endl;
+            cout << "========================================\n" << endl;
+            deleteSupplier(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
         }
         else if (choice == 6) {
             break;

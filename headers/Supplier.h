@@ -16,6 +16,9 @@ public:
     void updateSupplier(Database& db);
     void deleteSupplier(Database& db);
     void supplierMenu(Database& db);
+    
+    // Supplier page with clean layout
+    void supplierPage(Database& db);
 };
 
 #endif

@@ -23,22 +23,26 @@ void UserManager::addUser(Database& db) {
         cout << "Enter Username: ";
         getline(cin, username);
     }
+    
+    cout << "Enter Password: ";
+    password = getPasswordInput();
+    
+    while (password.empty()) {
+        cout << "Error: Password cannot be empty!" << endl;
+        cout << "Enter Password: ";
+        password = getPasswordInput();
+    }
 
-        cout << "\nSelect User Role:" << endl;
-        cout << "1. Admin" << endl;
-        cout << "2. Staff" << endl;
-        cout << "Select: ";
-        while (!(cin >> roleChoice) || roleChoice < 1 || roleChoice > 2) {
-            cin.clear();
-            cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-2: ";
-        }
-        cin.ignore();
-        if (roleChoice == 1) {
-            role = "Admin";
-        } else {
-            role = "Staff";
-        }
+    cout << "\nSelect User Role:" << endl;
+    cout << "1. Admin" << endl;
+    cout << "2. Staff" << endl;
+    cout << "Select: ";
+    while (!(cin >> roleChoice) || roleChoice < 1 || roleChoice > 2) {
+        cin.clear();
+        cin.ignore(10000, '\n');
+        cout << "Invalid choice! Select 1-2: ";
+    }
+    cin.ignore();
     
     if (roleChoice == 1) {
         role = "Admin";
@@ -46,10 +50,11 @@ void UserManager::addUser(Database& db) {
         role = "Staff";
     }
     
+    // Use MySQL MD5 function to hash the password
     string query = "INSERT INTO User (username, password, role) VALUES ('" 
-                   + username + "', '" + password + "', '" + role + "')";
+                   + username + "', MD5('" + password + "'), '" + role + "')";
     db.executeQuery(query);
-    cout << "✓ User Added Successfully." << endl;
+    cout << "[OK] User Added Successfully." << endl;
 }
 
 // READ - View all users
@@ -89,7 +94,7 @@ void UserManager::viewUser(Database& db, int userID) {
         cout << "Role: " << row[3] << endl;
         cout << "---------------------" << endl;
     } else {
-        cout << "✗ User not found." << endl;
+        cout << "[ERROR] User not found." << endl;
     }
 }
 
@@ -129,8 +134,9 @@ void UserManager::updateUser(Database& db) {
     else if (choice == 2) {
         string newPassword;
         cout << "Enter new Password: ";
-        getline(cin, newPassword);
-        query = "UPDATE User SET password = '" + newPassword + "' WHERE user_id = " + to_string(userID);
+        newPassword = getPasswordInput();
+        // Use MySQL MD5 function to hash the password
+        query = "UPDATE User SET password = MD5('" + newPassword + "') WHERE user_id = " + to_string(userID);
     }
     else if (choice == 3) {
         cout << "Select new User Role:" << endl;
@@ -156,7 +162,7 @@ void UserManager::updateUser(Database& db) {
     }
     
     db.executeQuery(query);
-    cout << "✓ User Updated Successfully." << endl;
+    cout << "[OK] User Updated Successfully." << endl;
 }
 
 // DELETE - Delete user
@@ -178,7 +184,7 @@ void UserManager::deleteUser(Database& db) {
     if (confirm == 'y' || confirm == 'Y') {
         string query = "DELETE FROM User WHERE user_id = " + to_string(userID);
         db.executeQuery(query);
-        cout << "✓ User Deleted Successfully." << endl;
+        cout << "[OK] User Deleted Successfully." << endl;
     } else {
         cout << "Deletion cancelled." << endl;
     }
@@ -188,28 +194,51 @@ void UserManager::deleteUser(Database& db) {
 void UserManager::userManagementMenu(Database& db) {
     int choice;
     while (true) {
-        cout << "\n=== USER MANAGEMENT ===" << endl;
+        system("cls");
+        cout << "\n";
+        cout << "========================================" << endl;
+        cout << "      USER MANAGEMENT SYSTEM            " << endl;
+        cout << "========================================" << endl;
+        cout << "\nOperations:" << endl;
         cout << "1. Create New User" << endl;
         cout << "2. View All Users" << endl;
-        cout << "3. View Specific User" << endl;
+        cout << "3. View User Details" << endl;
         cout << "4. Update User" << endl;
         cout << "5. Delete User" << endl;
-        cout << "6. Back to Main Menu" << endl;
-        cout << "Select: ";
+        cout << "6. Back to Dashboard" << endl;
+        cout << "========================================" << endl;
+        cout << "Select option: ";
         
         while (!(cin >> choice) || choice < 1 || choice > 6) {
             cin.clear();
             cin.ignore(10000, '\n');
             cout << "Invalid choice! Select 1-6: ";
         }
+        cin.ignore(10000, '\n');
         
         if (choice == 1) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          CREATE NEW USER              " << endl;
+            cout << "========================================\n" << endl;
             addUser(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
         }
         else if (choice == 2) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          VIEW ALL USERS               " << endl;
+            cout << "========================================\n" << endl;
             viewUsers(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
         }
         else if (choice == 3) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "         VIEW USER DETAILS             " << endl;
+            cout << "========================================\n" << endl;
             int userID;
             cout << "Enter User ID: ";
             while (!(cin >> userID) || userID <= 0) {
@@ -217,13 +246,28 @@ void UserManager::userManagementMenu(Database& db) {
                 cin.ignore(10000, '\n');
                 cout << "Invalid input! Enter valid User ID: ";
             }
+            cin.ignore(10000, '\n');
             viewUser(db, userID);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
         }
         else if (choice == 4) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "            UPDATE USER               " << endl;
+            cout << "========================================\n" << endl;
             updateUser(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
         }
         else if (choice == 5) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "            DELETE USER               " << endl;
+            cout << "========================================\n" << endl;
             deleteUser(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
         }
         else if (choice == 6) {
             break;

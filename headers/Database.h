@@ -16,10 +16,10 @@ public:
         conn = mysql_init(0);
         conn = mysql_real_connect(conn, "localhost", "root", "", "smart_grocery", 3306, NULL, 0);
         if (conn) {
-            cout << "\n✓ Database Connected Successfully!" << endl;
+            //cout << "\n✓ Database Connected Successfully!" << endl;
             isConnected = true;
         } else {
-            cout << "\n✗ Failed to connect to database." << endl;
+            cout << "\n[ERROR] Failed to connect to database." << endl;
             cout << "Make sure MySQL Server is running!" << endl;
             cout << "Error: " << mysql_error(conn) << endl;
             isConnected = false;

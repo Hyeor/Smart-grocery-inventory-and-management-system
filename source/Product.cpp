@@ -78,7 +78,7 @@ void InventoryManager::addProduct(Database& db) {
     MYSQL_RES* verifyRes = mysql_store_result(db.conn);
     
     if (!mysql_fetch_row(verifyRes)) {
-        cout << "✗ Supplier ID not found!" << endl;
+        cout << "[ERROR] Supplier ID not found!" << endl;
         return;
     }
 
@@ -86,7 +86,7 @@ void InventoryManager::addProduct(Database& db) {
     string query = "INSERT INTO Product (name, cost_price, sell_price, stock_quantity, supplier_id) VALUES ('" 
                    + name + "', " + to_string(cost) + ", " + to_string(sell) + ", " + to_string(qty) + ", " + to_string(supplierID) + ")";
     db.executeQuery(query);
-    cout << "✓ Product Added Successfully." << endl;
+    cout << "[OK] Product Added Successfully." << endl;
 }
 
 // READ - View all products
@@ -141,7 +141,7 @@ void InventoryManager::viewProduct(Database& db, int productID) {
         cout << "Date Created: " << row[8] << endl;
         cout << "------------------------" << endl;
     } else {
-        cout << "✗ Product not found." << endl;
+        cout << "[ERROR] Product not found." << endl;
     }
 }
 
@@ -224,7 +224,7 @@ void InventoryManager::updateProduct(Database& db) {
     }
     
     db.executeQuery(query);
-    cout << "✓ Product Updated Successfully." << endl;
+    cout << "[OK] Product Updated Successfully." << endl;
 }
 
 // DELETE - Delete product
@@ -247,7 +247,7 @@ void InventoryManager::deleteProduct(Database& db) {
     if (confirm == 'y' || confirm == 'Y') {
         string query = "DELETE FROM Product WHERE product_id = " + to_string(productID);
         db.executeQuery(query);
-        cout << "✓ Product Deleted Successfully." << endl;
+        cout << "[OK] Product Deleted Successfully." << endl;
     } else {
         cout << "Deletion cancelled." << endl;
     }
@@ -293,6 +293,91 @@ void InventoryManager::adminCRUDMenu(Database& db) {
         }
         else if (choice == 5) {
             deleteProduct(db);
+        }
+        else if (choice == 6) {
+            break;
+        }
+    }
+}
+
+// Inventory Page - Full CRUD with clean page layout
+void InventoryManager::inventoryPage(Database& db) {
+    int choice;
+    while (true) {
+        system("cls");
+        cout << "\n";
+        cout << "========================================" << endl;
+        cout << "      INVENTORY MANAGEMENT SYSTEM       " << endl;
+        cout << "========================================" << endl;
+        cout << "\nOperations:" << endl;
+        cout << "1. Add New Product" << endl;
+        cout << "2. View All Products" << endl;
+        cout << "3. View Product Details" << endl;
+        cout << "4. Update Product" << endl;
+        cout << "5. Delete Product" << endl;
+        cout << "6. Back to Dashboard" << endl;
+        cout << "========================================" << endl;
+        cout << "Select option: "; 
+        
+        while (!(cin >> choice) || choice < 1 || choice > 6) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Invalid choice! Select 1-6: ";
+        }
+        cin.ignore(10000, '\n');
+
+        if (choice == 1) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          ADD NEW PRODUCT               " << endl;
+            cout << "========================================\n" << endl;
+            addProduct(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+        else if (choice == 2) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          VIEW ALL PRODUCTS             " << endl;
+            cout << "========================================\n" << endl;
+            viewInventory(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+        else if (choice == 3) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "        VIEW PRODUCT DETAILS            " << endl;
+            cout << "========================================\n" << endl;
+            int productID;
+            cout << "Enter Product ID: ";
+            while (!(cin >> productID) || productID <= 0) {
+                cin.clear();
+                cin.ignore(10000, '\n');
+                cout << "Invalid input! Enter valid Product ID: ";
+            }
+            cin.ignore(10000, '\n');
+            viewProduct(db, productID);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+        else if (choice == 4) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          UPDATE PRODUCT               " << endl;
+            cout << "========================================\n" << endl;
+            updateProduct(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+        else if (choice == 5) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "          DELETE PRODUCT               " << endl;
+            cout << "========================================\n" << endl;
+            deleteProduct(db);
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
         }
         else if (choice == 6) {
             break;

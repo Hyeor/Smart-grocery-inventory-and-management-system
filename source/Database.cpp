@@ -12,7 +12,7 @@ public:
         conn = mysql_init(0);
         conn = mysql_real_connect(conn, "localhost", "root", "", "smart_grocery", 3306, NULL, 0);
         if (conn) {
-            cout << "Database Connected Successfully!" << endl;
+            //cout << "Database Connected Successfully!" << endl;
         } else {
             cout << "Failed to connect to database." << endl;
         }
