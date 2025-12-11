@@ -12,6 +12,8 @@ public:
         conn = mysql_init(0);
         conn = mysql_real_connect(conn, "localhost", "root", "", "smart_grocery", 3306, NULL, 0);
         if (conn) {
+            // Set character set to UTF-8 for proper encoding
+            mysql_set_character_set(conn, "utf8mb4");
             //cout << "Database Connected Successfully!" << endl;
         } else {
             cout << "Failed to connect to database." << endl;

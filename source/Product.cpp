@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstdio>
+#include <iomanip>
 #include <mysql.h>
 #include "Database.h"
 #include "Product.h"
@@ -24,11 +25,97 @@ void displaySuppliers(Database& db) {
     cout << "------------------------" << endl;
 }
 
+// Display category options
+void displayCategories() {
+    cout << "\n=== PRODUCT CATEGORIES ===" << endl;
+    cout << "1. Fresh Produce (Fruits & Vegetables)" << endl;
+    cout << "2. Meat, Poultry, and Seafood" << endl;
+    cout << "3. Dairy Products" << endl;
+    cout << "4. Bakery" << endl;
+    cout << "5. Beverages" << endl;
+    cout << "6. Canned Goods" << endl;
+    cout << "7. Dry Goods & Grains" << endl;
+    cout << "8. Snacks & Confectionery" << endl;
+    cout << "9. Frozen Foods" << endl;
+    cout << "10. Condiments & Sauces" << endl;
+    cout << "11. Personal Care" << endl;
+    cout << "12. Household Items" << endl;
+    cout << "13. Others" << endl;
+    cout << "==========================" << endl;
+}
+
+// Display unit options
+void displayUnits() {
+    cout << "\n=== UNIT OPTIONS ===" << endl;
+    cout << "1. kg (Kilogram)" << endl;
+    cout << "2. g (Gram)" << endl;
+    cout << "3. litre (Liter)" << endl;
+    cout << "4. ml (Milliliter)" << endl;
+    cout << "5. piece/pcs" << endl;
+    cout << "6. bunch" << endl;
+    cout << "7. bag" << endl;
+    cout << "8. tray/container" << endl;
+    cout << "9. cup/tub/pack" << endl;
+    cout << "10. dozen" << endl;
+    cout << "11. loaf" << endl;
+    cout << "12. pack/packet" << endl;
+    cout << "13. can" << endl;
+    cout << "14. box" << endl;
+    cout << "15. bottle" << endl;
+    cout << "16. jar" << endl;
+    cout << "17. tube" << endl;
+    cout << "====================" << endl;
+}
+
+// Get category name from selection
+string getCategoryName(int choice) {
+    switch(choice) {
+        case 1: return "Fresh Produce (Fruits & Vegetables)";
+        case 2: return "Meat, Poultry, and Seafood";
+        case 3: return "Dairy Products";
+        case 4: return "Bakery";
+        case 5: return "Beverages";
+        case 6: return "Canned Goods";
+        case 7: return "Dry Goods & Grains";
+        case 8: return "Snacks & Confectionery";
+        case 9: return "Frozen Foods";
+        case 10: return "Condiments & Sauces";
+        case 11: return "Personal Care";
+        case 12: return "Household Items";
+        case 13: return "Others";
+        default: return "Others";
+    }
+}
+
+// Get unit name from selection
+string getUnitName(int choice) {
+    switch(choice) {
+        case 1: return "kg";
+        case 2: return "g";
+        case 3: return "litre";
+        case 4: return "ml";
+        case 5: return "piece/pcs";
+        case 6: return "bunch";
+        case 7: return "bag";
+        case 8: return "tray/container";
+        case 9: return "cup/tub/pack";
+        case 10: return "dozen";
+        case 11: return "loaf";
+        case 12: return "pack/packet";
+        case 13: return "can";
+        case 14: return "box";
+        case 15: return "bottle";
+        case 16: return "jar";
+        case 17: return "tube";
+        default: return "piece/pcs";
+    }
+}
+
 // CREATE - Add new product
 void InventoryManager::addProduct(Database& db) {
-    string name;
-    double cost, sell;
-    int qty, supplierID;
+    string name, category, unit;
+    double cost, sellPerUnit, stockQty;
+    int categoryChoice, unitChoice, supplierID;
 
     cout << "Enter Product Name: ";
     cin.ignore();
@@ -41,25 +128,54 @@ void InventoryManager::addProduct(Database& db) {
         getline(cin, name);
     }
     
-    cout << "Enter Cost Price: ";
+    // Select Category
+    displayCategories();
+    cout << "Select Category (1-13): ";
+    while (!(cin >> categoryChoice) || categoryChoice < 1 || categoryChoice > 13) {
+        cin.clear();
+        cin.ignore(10000, '\n');
+        cout << "Invalid input! Select category (1-13): ";
+    }
+    category = getCategoryName(categoryChoice);
+    
+    // Select Unit
+    displayUnits();
+    cout << "Select Unit (1-17): ";
+    while (!(cin >> unitChoice) || unitChoice < 1 || unitChoice > 17) {
+        cin.clear();
+        cin.ignore(10000, '\n');
+        cout << "Invalid input! Select unit (1-17): ";
+    }
+    unit = getUnitName(unitChoice);
+    
+    // Enter unit size per pack (e.g., 5 kg per pack)
+    double unitSize = 1.0;
+    cout << "\nEnter unit size per pack (e.g., 5 for '5 " << unit << " per pack'): ";
+    while (!(cin >> unitSize) || unitSize <= 0) {
+        cin.clear();
+        cin.ignore(10000, '\n');
+        cout << "Invalid input! Enter valid unit size per pack: ";
+    }
+    
+    cout << "\nEnter Cost Price: RM";
     while (!(cin >> cost) || cost < 0) {
         cin.clear();
         cin.ignore(10000, '\n');
-        cout << "Invalid input! Enter valid cost price: ";
+        cout << "Invalid input! Enter valid cost price: RM";
     }
     
-    cout << "Enter Sell Price: ";
-    while (!(cin >> sell) || sell < 0) {
+    cout << "Enter Sell Price per " << unit << ": RM";
+    while (!(cin >> sellPerUnit) || sellPerUnit < 0) {
         cin.clear();
         cin.ignore(10000, '\n');
-        cout << "Invalid input! Enter valid sell price: ";
+        cout << "Invalid input! Enter valid sell price per " << unit << ": RM";
     }
     
-    cout << "Enter Quantity: ";
-    while (!(cin >> qty) || qty <= 0) {
+    cout << "Enter Stock Quantity (in " << unit << "): ";
+    while (!(cin >> stockQty) || stockQty < 0) {
         cin.clear();
         cin.ignore(10000, '\n');
-        cout << "Invalid input! Enter positive quantity: ";
+        cout << "Invalid input! Enter valid stock quantity: ";
     }
     
     displaySuppliers(db);
@@ -82,64 +198,89 @@ void InventoryManager::addProduct(Database& db) {
         return;
     }
 
-    // Query to insert product
-    string query = "INSERT INTO Product (name, cost_price, sell_price, stock_quantity, supplier_id) VALUES ('" 
-                   + name + "', " + to_string(cost) + ", " + to_string(sell) + ", " + to_string(qty) + ", " + to_string(supplierID) + ")";
+    // Calculate number of packs
+    double totalPacks = stockQty / unitSize;
+    
+    // Query to insert product with category, unit, and unit_size
+    string query = "INSERT INTO Product (name, category, unit, unit_size, cost_price, sell_price, stock_quantity, supplier_id) VALUES ('" 
+                   + name + "', '" + category + "', '" + unit + "', " + to_string(unitSize) + ", " + to_string(cost) + ", " + to_string(sellPerUnit) + ", " + to_string(stockQty) + ", " + to_string(supplierID) + ")";
     db.executeQuery(query);
-    cout << "[OK] Product Added Successfully." << endl;
+    cout << "\n[OK] Product Added Successfully!" << endl;
+    cout << "     Product: " << name << endl;
+    cout << "     Category: " << category << endl;
+    cout << "     Unit: " << unit << endl;
+    cout << "     Pack Size: " << unitSize << " " << unit << " per pack" << endl;
+    cout << "     Sell Price: RM" << sellPerUnit << " per " << unit << endl;
+    cout << "     Stock: " << stockQty << " " << unit << " (" << totalPacks << " packs)" << endl;
 }
 
 // READ - View all products
 void InventoryManager::viewInventory(Database& db) {
-    string query = "SELECT p.product_id, p.date_created, p.name, s.supplier_name, p.cost_price, p.sell_price, p.stock_quantity FROM Product p LEFT JOIN Supplier s ON p.supplier_id = s.supplier_id ORDER BY p.product_id";
+    string query = "SELECT p.product_id, p.name, p.category, p.unit, p.unit_size, p.cost_price, p.sell_price, p.stock_quantity, s.supplier_name "
+                   "FROM Product p LEFT JOIN Supplier s ON p.supplier_id = s.supplier_id ORDER BY p.product_id";
     mysql_query(db.conn, query.c_str());
     MYSQL_RES* res = mysql_store_result(db.conn);
     MYSQL_ROW row;
 
-    cout << "\n--- Inventory List ---" << endl;
-    cout << "=================================================================================" << endl;
-    cout << "ID | Date Created       | Name             | Supplier         | Cost | Sell | Stock | Bar" << endl;
-    cout << "=================================================================================" << endl;
+    cout << "\n=========================================================================================================" << endl;
+    cout << "                                          INVENTORY LIST                                             " << endl;
+    cout << "=========================================================================================================" << endl;
+    cout << "Item Name              | Category                      | Cost (RM) | Sell Price (per unit) | Stock (per unit) | Supplier Name   " << endl;
+    cout << "=========================================================================================================" << endl;
     
     while ((row = mysql_fetch_row(res))) {
-        int stock = stoi(row[6]);
-        string stockBar = "";
+        string name = row[1] ? string(row[1]) : "N/A";
+        string category = row[2] ? string(row[2]) : "Others";
+        string unit = row[3] ? string(row[3]) : "pcs";
+        double unitSize = row[4] ? atof(row[4]) : 1.0;
+        string cost = row[5] ? string(row[5]) : "0";
+        string sellPrice = row[6] ? string(row[6]) + "/" + unit : "0";
+        double stockQty = row[7] ? atof(row[7]) : 0.0;
+        string stock = row[7] ? string(row[7]) + " " + unit : "0";
+        string supplier = row[8] ? string(row[8]) : "N/A";
         
-        // Create visual bar based on stock percentage
-        int barLength = (stock > 100) ? 10 : (stock / 10);
-        if (barLength > 10) barLength = 10;
-        
-        // Build bar with # for filled, - for empty
-        for (int i = 0; i < barLength; i++) {
-            stockBar += "#";
-        }
-        for (int i = barLength; i < 10; i++) {
-            stockBar += "-";
-        }
-        
-        printf("%-2s | %-18s | %-16s | %-16s | RM%-3s | RM%-3s | %-5s | [%s]\n",
-               row[0], row[1], row[2], row[3] ? row[3] : "N/A", row[4], row[5], row[6], stockBar.c_str());
+        // Use cout instead of printf to handle special characters properly
+        cout << left << setw(22) << name << " | "
+             << setw(29) << category << " | "
+             << setw(9) << cost << " | "
+             << setw(21) << sellPrice << " | "
+             << setw(16) << stock << " | "
+             << setw(15) << supplier << endl;
     }
-    cout << "=================================================================================" << endl;
+    cout << "=========================================================================================================" << endl;
 }
 
 // READ - View single product by ID
 void InventoryManager::viewProduct(Database& db, int productID) {
-    string query = "SELECT p.product_id, p.product_id, p.name, p.supplier_id, s.supplier_name, p.cost_price, p.sell_price, p.stock_quantity, p.date_created FROM Product p LEFT JOIN Supplier s ON p.supplier_id = s.supplier_id WHERE p.product_id = " + to_string(productID);
+    string query = "SELECT p.product_id, p.name, p.category, p.unit, p.unit_size, p.cost_price, p.sell_price, "
+                   "p.stock_quantity, s.supplier_name, p.date_created "
+                   "FROM Product p LEFT JOIN Supplier s ON p.supplier_id = s.supplier_id "
+                   "WHERE p.product_id = " + to_string(productID);
     mysql_query(db.conn, query.c_str());
     MYSQL_RES* res = mysql_store_result(db.conn);
     MYSQL_ROW row = mysql_fetch_row(res);
     
     if (row) {
-        cout << "\n--- Product Details ---" << endl;
-        cout << "ID: " << row[0] << endl;
-        cout << "Name: " << row[2] << endl;
-        cout << "Supplier: " << (row[4] ? row[4] : "N/A") << endl;
-        cout << "Cost Price: RM" << row[5] << endl;
-        cout << "Sell Price: RM" << row[6] << endl;
-        cout << "Stock Quantity: " << row[7] << endl;
-        cout << "Date Created: " << row[8] << endl;
-        cout << "------------------------" << endl;
+        string unit = row[3] ? string(row[3]) : "pcs";
+        double unitSize = row[4] ? atof(row[4]) : 1.0;
+        double stockQty = row[7] ? atof(row[7]) : 0.0;
+        double packsLeft = stockQty / unitSize;
+        
+        cout << "\n========================================" << endl;
+        cout << "         PRODUCT DETAILS                " << endl;
+        cout << "========================================" << endl;
+        cout << "Product ID:       " << row[0] << endl;
+        cout << "Item Name:        " << row[1] << endl;
+        cout << "Category:         " << (row[2] ? row[2] : "Others") << endl;
+        cout << "Unit:             " << unit << endl;
+        cout << "Pack Size:        " << unitSize << " " << unit << " per pack" << endl;
+        cout << "Cost Price:       RM" << (row[5] ? row[5] : "0") << endl;
+        cout << "Sell Price:       RM" << (row[6] ? row[6] : "0") << " per " << unit << endl;
+        cout << "Stock Quantity:   " << stockQty << " " << unit << endl;
+        cout << "Packs Left:       " << packsLeft << " packs" << endl;
+        cout << "Supplier:         " << (row[8] ? row[8] : "N/A") << endl;
+        cout << "Date Created:     " << (row[9] ? row[9] : "N/A") << endl;
+        cout << "========================================" << endl;
     } else {
         cout << "[ERROR] Product not found." << endl;
     }
@@ -160,17 +301,20 @@ void InventoryManager::updateProduct(Database& db) {
     
     cout << "\nWhat do you want to update?" << endl;
     cout << "1. Product Name" << endl;
-    cout << "2. Cost Price" << endl;
-    cout << "3. Sell Price" << endl;
-    cout << "4. Stock Quantity" << endl;
-    cout << "5. Supplier" << endl;
+    cout << "2. Category" << endl;
+    cout << "3. Unit" << endl;
+    cout << "4. Pack Size (Unit Size)" << endl;
+    cout << "5. Cost Price" << endl;
+    cout << "6. Sell Price" << endl;
+    cout << "7. Stock Quantity" << endl;
+    cout << "8. Supplier" << endl;
     cout << "Select: ";
     
     int choice;
-    while (!(cin >> choice) || choice < 1 || choice > 5) {
+    while (!(cin >> choice) || choice < 1 || choice > 8) {
         cin.clear();
         cin.ignore(10000, '\n');
-        cout << "Invalid choice! Select 1-5: ";
+        cout << "Invalid choice! Select 1-8: ";
     }
     cin.ignore();
     
@@ -182,27 +326,61 @@ void InventoryManager::updateProduct(Database& db) {
         query = "UPDATE Product SET name = '" + newName + "' WHERE product_id = " + to_string(productID);
     }
     else if (choice == 2) {
+        int categoryChoice;
+        displayCategories();
+        cout << "Select new Category (1-13): ";
+        while (!(cin >> categoryChoice) || categoryChoice < 1 || categoryChoice > 13) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Invalid input! Select category (1-13): ";
+        }
+        string newCategory = getCategoryName(categoryChoice);
+        query = "UPDATE Product SET category = '" + newCategory + "' WHERE product_id = " + to_string(productID);
+    }
+    else if (choice == 3) {
+        int unitChoice;
+        displayUnits();
+        cout << "Select new Unit (1-17): ";
+        while (!(cin >> unitChoice) || unitChoice < 1 || unitChoice > 17) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Invalid input! Select unit (1-17): ";
+        }
+        string newUnit = getUnitName(unitChoice);
+        query = "UPDATE Product SET unit = '" + newUnit + "' WHERE product_id = " + to_string(productID);
+    }
+    else if (choice == 4) {
+        double newUnitSize;
+        cout << "Enter new Pack Size (unit size per pack): ";
+        while (!(cin >> newUnitSize) || newUnitSize <= 0) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Invalid input! Enter valid pack size: ";
+        }
+        query = "UPDATE Product SET unit_size = " + to_string(newUnitSize) + " WHERE product_id = " + to_string(productID);
+    }
+    else if (choice == 5) {
         double newCost;
-        cout << "Enter new Cost Price: ";
+        cout << "Enter new Cost Price: RM";
         while (!(cin >> newCost) || newCost < 0) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid input! Enter valid cost: ";
+            cout << "Invalid input! Enter valid cost: RM";
         }
         query = "UPDATE Product SET cost_price = " + to_string(newCost) + " WHERE product_id = " + to_string(productID);
     }
-    else if (choice == 3) {
+    else if (choice == 6) {
         double newSell;
-        cout << "Enter new Sell Price: ";
+        cout << "Enter new Sell Price: RM";
         while (!(cin >> newSell) || newSell < 0) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid input! Enter valid sell price: ";
+            cout << "Invalid input! Enter valid sell price: RM";
         }
         query = "UPDATE Product SET sell_price = " + to_string(newSell) + " WHERE product_id = " + to_string(productID);
     }
-    else if (choice == 4) {
-        int newQty;
+    else if (choice == 7) {
+        double newQty;
         cout << "Enter new Stock Quantity: ";
         while (!(cin >> newQty) || newQty < 0) {
             cin.clear();
@@ -211,7 +389,7 @@ void InventoryManager::updateProduct(Database& db) {
         }
         query = "UPDATE Product SET stock_quantity = " + to_string(newQty) + " WHERE product_id = " + to_string(productID);
     }
-    else if (choice == 5) {
+    else if (choice == 8) {
         displaySuppliers(db);
         int newSupplierID;
         cout << "Select new Supplier ID: ";
