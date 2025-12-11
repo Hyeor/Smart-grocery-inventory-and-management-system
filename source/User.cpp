@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstdio>
+#include <stdexcept>
 #include <mysql.h>
 #include "Database.h"
 #include "user.h"
@@ -9,74 +10,103 @@ using namespace std;
 
 // CREATE - Add new user
 void UserManager::addUser(Database& db) {
-    string username, password;
-    int roleChoice;
-    string role;
-    
-    cout << "\n=== ADD NEW USER ===" << endl;
-    cout << "Enter Username: ";
-    cin.ignore();
-    getline(cin, username);
-    
-    while (username.empty()) {
-        cout << "Error: Username cannot be empty!" << endl;
+    try {
+        if (!db.conn) {
+            throw runtime_error("Database connection is not available");
+        }
+        
+        string username, password;
+        int roleChoice;
+        string role;
+        
+        cout << "\n=== ADD NEW USER ===" << endl;
         cout << "Enter Username: ";
+        cin.ignore();
         getline(cin, username);
-    }
-    
-    cout << "Enter Password: ";
-    password = getPasswordInput();
-    
-    while (password.empty()) {
-        cout << "Error: Password cannot be empty!" << endl;
+        
+        while (username.empty()) {
+            cout << "Error: Username cannot be empty!" << endl;
+            cout << "Enter Username: ";
+            getline(cin, username);
+        }
+        
         cout << "Enter Password: ";
         password = getPasswordInput();
-    }
+        
+        while (password.empty()) {
+            cout << "Error: Password cannot be empty!" << endl;
+            cout << "Enter Password: ";
+            password = getPasswordInput();
+        }
 
-    cout << "\nSelect User Role:" << endl;
-    cout << "1. Admin" << endl;
-    cout << "2. Staff" << endl;
-    cout << "Select: ";
-    while (!(cin >> roleChoice) || roleChoice < 1 || roleChoice > 2) {
+        cout << "\nSelect User Role:" << endl;
+        cout << "1. Admin" << endl;
+        cout << "2. Staff" << endl;
+        cout << "Select: ";
+        while (!(cin >> roleChoice) || roleChoice < 1 || roleChoice > 2) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Invalid choice! Select 1-2: ";
+        }
+        cin.ignore();
+        
+        if (roleChoice == 1) {
+            role = "Admin";
+        } else {
+            role = "Staff";
+        }
+        
+        // Use MySQL MD5 function to hash the password
+        string query = "INSERT INTO User (username, password, role) VALUES ('" 
+                       + username + "', MD5('" + password + "'), '" + role + "')";
+        db.executeQuery(query);
+        cout << "[OK] User Added Successfully." << endl;
+        
+    } catch (const exception& e) {
+        cerr << "\n[ERROR] Failed to add user: " << e.what() << endl;
         cin.clear();
         cin.ignore(10000, '\n');
-        cout << "Invalid choice! Select 1-2: ";
     }
-    cin.ignore();
-    
-    if (roleChoice == 1) {
-        role = "Admin";
-    } else {
-        role = "Staff";
-    }
-    
-    // Use MySQL MD5 function to hash the password
-    string query = "INSERT INTO User (username, password, role) VALUES ('" 
-                   + username + "', MD5('" + password + "'), '" + role + "')";
-    db.executeQuery(query);
-    cout << "[OK] User Added Successfully." << endl;
 }
 
 // READ - View all users
 void UserManager::viewUsers(Database& db) {
-    string query = "SELECT user_id, username, role FROM User ORDER BY user_id";
-    mysql_query(db.conn, query.c_str());
-    MYSQL_RES* res = mysql_store_result(db.conn);
-    MYSQL_ROW row;
+    try {
+        if (!db.conn) {
+            throw runtime_error("Database connection is not available");
+        }
+        
+        string query = "SELECT user_id, username, role FROM User ORDER BY user_id";
+        if (mysql_query(db.conn, query.c_str())) {
+            throw runtime_error("Failed to fetch users: " + string(mysql_error(db.conn)));
+        }
+        
+        MYSQL_RES* res = mysql_store_result(db.conn);
+        if (!res) {
+            throw runtime_error("Failed to store result set");
+        }
+        
+        MYSQL_ROW row;
 
-    cout << "\n=== LIST OF SYSTEM USERS ===" << endl;
-    cout << "========================================================================" << endl;
-    cout << "#  | User ID  | Username         | User Type                        " << endl;
-    cout << "========================================================================" << endl;
-    
-    int count = 0;
-    while ((row = mysql_fetch_row(res))) {
-        count++;
-        printf("%-2d | %-8s | %-16s | %s\n",
-               count, row[0], row[1], row[2]);
+        cout << "\n=== LIST OF SYSTEM USERS ===" << endl;
+        cout << "========================================================================" << endl;
+        cout << "#  | User ID  | Username         | User Type                        " << endl;
+        cout << "========================================================================" << endl;
+        
+        int count = 0;
+        while ((row = mysql_fetch_row(res))) {
+            count++;
+            printf("%-2d | %-8s | %-16s | %s\n",
+                   count, row[0], row[1], row[2]);
+        }
+        cout << "========================================================================" << endl;
+        printf("Showing 1 to %d of %d entries\n", count, count);
+        
+        mysql_free_result(res);
+        
+    } catch (const exception& e) {
+        cerr << "\n[ERROR] " << e.what() << endl;
     }
-    cout << "========================================================================" << endl;
-    printf("Showing 1 to %d of %d entries\n", count, count);
 }
 
 // READ - View single user by ID

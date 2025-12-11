@@ -101,25 +101,50 @@ void showStaffDashboard(Database& db, UserManager& userMgr,
 }
 
 int main() {
-    cout << "\n=== Smart Grocery Management System ===" << endl;
-    
-    Database db;
+    try {
+        cout << "\n=== Smart Grocery Management System ===" << endl;
+        
+        Database db;
+        
+        // Check if database connection is valid
+        if (!db.conn) {
+            cerr << "\n[CRITICAL ERROR] Cannot proceed without database connection." << endl;
+            cerr << "Please ensure MySQL server is running and credentials are correct." << endl;
+            cout << "\nPress Enter to exit...";
+            cin.get();
+            return 1;
+        }
 
-    UserManager userMgr;
-    InventoryManager invMgr;
-    SalesManager salesMgr;
-    SupplierManager supplierMgr;
+        UserManager userMgr;
+        InventoryManager invMgr;
+        SalesManager salesMgr;
+        SupplierManager supplierMgr;
 
-    // 1. Authenticate
-    string role = userMgr.login(db);
+        // 1. Authenticate
+        string role = userMgr.login(db);
 
-    if (role == "") return 0; // Exit if failed
+        if (role == "") return 0; // Exit if failed
 
-    // 2. Dashboard Loop based on role
-    if (role == "Admin") {
-        showAdminDashboard(db, userMgr, invMgr, salesMgr, supplierMgr);
-    } else {
-        showStaffDashboard(db, userMgr, invMgr, salesMgr, supplierMgr);
+        // 2. Dashboard Loop based on role
+        if (role == "Admin") {
+            showAdminDashboard(db, userMgr, invMgr, salesMgr, supplierMgr);
+        } else {
+            showStaffDashboard(db, userMgr, invMgr, salesMgr, supplierMgr);
+        }
+
+    } catch (const exception& e) {
+        cerr << "\n[FATAL ERROR] " << e.what() << endl;
+        cout << "\nThe application encountered a critical error and must close." << endl;
+        cout << "Press Enter to exit...";
+        cin.ignore();
+        cin.get();
+        return 1;
+    } catch (...) {
+        cerr << "\n[UNKNOWN ERROR] An unexpected error occurred." << endl;
+        cout << "Press Enter to exit...";
+        cin.ignore();
+        cin.get();
+        return 1;
     }
 
     return 0;

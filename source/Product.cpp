@@ -2,6 +2,7 @@
 #include <string>
 #include <cstdio>
 #include <iomanip>
+#include <stdexcept>
 #include <mysql.h>
 #include "Database.h"
 #include "Product.h"
@@ -216,38 +217,57 @@ void InventoryManager::addProduct(Database& db) {
 
 // READ - View all products
 void InventoryManager::viewInventory(Database& db) {
-    string query = "SELECT p.product_id, p.name, p.category, p.unit, p.unit_size, p.cost_price, p.sell_price, p.stock_quantity, s.supplier_name "
-                   "FROM Product p LEFT JOIN Supplier s ON p.supplier_id = s.supplier_id ORDER BY p.product_id";
-    mysql_query(db.conn, query.c_str());
-    MYSQL_RES* res = mysql_store_result(db.conn);
-    MYSQL_ROW row;
-
-    cout << "\n=========================================================================================================" << endl;
-    cout << "                                          INVENTORY LIST                                             " << endl;
-    cout << "=========================================================================================================" << endl;
-    cout << "Item Name              | Category                      | Cost (RM) | Sell Price (per unit) | Stock (per unit) | Supplier Name   " << endl;
-    cout << "=========================================================================================================" << endl;
-    
-    while ((row = mysql_fetch_row(res))) {
-        string name = row[1] ? string(row[1]) : "N/A";
-        string category = row[2] ? string(row[2]) : "Others";
-        string unit = row[3] ? string(row[3]) : "pcs";
-        double unitSize = row[4] ? atof(row[4]) : 1.0;
-        string cost = row[5] ? string(row[5]) : "0";
-        string sellPrice = row[6] ? string(row[6]) + "/" + unit : "0";
-        double stockQty = row[7] ? atof(row[7]) : 0.0;
-        string stock = row[7] ? string(row[7]) + " " + unit : "0";
-        string supplier = row[8] ? string(row[8]) : "N/A";
+    try {
+        if (!db.conn) {
+            throw runtime_error("Database connection is not available");
+        }
         
-        // Use cout instead of printf to handle special characters properly
-        cout << left << setw(22) << name << " | "
-             << setw(29) << category << " | "
-             << setw(9) << cost << " | "
-             << setw(21) << sellPrice << " | "
-             << setw(16) << stock << " | "
-             << setw(15) << supplier << endl;
+        string query = "SELECT p.product_id, p.name, p.category, p.unit, p.unit_size, p.cost_price, p.sell_price, p.stock_quantity, s.supplier_name "
+                       "FROM Product p LEFT JOIN Supplier s ON p.supplier_id = s.supplier_id ORDER BY p.product_id";
+        
+        if (mysql_query(db.conn, query.c_str())) {
+            throw runtime_error("Failed to fetch inventory: " + string(mysql_error(db.conn)));
+        }
+        
+        MYSQL_RES* res = mysql_store_result(db.conn);
+        if (!res) {
+            throw runtime_error("Failed to store result set");
+        }
+        
+        MYSQL_ROW row;
+
+        cout << "\n=========================================================================================================" << endl;
+        cout << "                                          INVENTORY LIST                                             " << endl;
+        cout << "=========================================================================================================" << endl;
+        cout << "Item Name              | Category                      | Cost (RM) | Sell Price (per unit) | Stock (per unit) | Supplier Name   " << endl;
+        cout << "=========================================================================================================" << endl;
+        
+        while ((row = mysql_fetch_row(res))) {
+            string name = row[1] ? string(row[1]) : "N/A";
+            string category = row[2] ? string(row[2]) : "Others";
+            string unit = row[3] ? string(row[3]) : "pcs";
+            double unitSize = row[4] ? atof(row[4]) : 1.0;
+            string cost = row[5] ? string(row[5]) : "0";
+            string sellPrice = row[6] ? string(row[6]) + "/" + unit : "0";
+            double stockQty = row[7] ? atof(row[7]) : 0.0;
+            string stock = row[7] ? string(row[7]) + " " + unit : "0";
+            string supplier = row[8] ? string(row[8]) : "N/A";
+            
+            // Use cout instead of printf to handle special characters properly
+            cout << left << setw(22) << name << " | "
+                 << setw(29) << category << " | "
+                 << setw(9) << cost << " | "
+                 << setw(21) << sellPrice << " | "
+                 << setw(16) << stock << " | "
+                 << setw(15) << supplier << endl;
+        }
+        cout << "=========================================================================================================" << endl;
+        
+        mysql_free_result(res);
+        
+    } catch (const exception& e) {
+        cerr << "\n[ERROR] " << e.what() << endl;
     }
-    cout << "=========================================================================================================" << endl;
 }
 
 // READ - View single product by ID

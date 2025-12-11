@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstdio>
+#include <stdexcept>
 #include <mysql.h>
 #include "Database.h"
 #include "Supplier.h"
@@ -9,35 +10,46 @@ using namespace std;
 
 // CREATE - Add new supplier
 void SupplierManager::addSupplier(Database& db) {
-    string supplierName, contactPerson, phone;
-    
-    cout << "\n=== ADD NEW SUPPLIER ===" << endl;
-    cout << "Enter Supplier Name: ";
-    cin.ignore();
-    getline(cin, supplierName);
-    
-    while (supplierName.empty()) {
-        cout << "Error: Supplier name cannot be empty!" << endl;
+    try {
+        if (!db.conn) {
+            throw runtime_error("Database connection is not available");
+        }
+        
+        string supplierName, contactPerson, phone;
+        
+        cout << "\n=== ADD NEW SUPPLIER ===" << endl;
         cout << "Enter Supplier Name: ";
+        cin.ignore();
         getline(cin, supplierName);
-    }
-    
-    cout << "Enter Contact Person: ";
-    getline(cin, contactPerson);
-    
-    while (contactPerson.empty()) {
-        cout << "Error: Contact person cannot be empty!" << endl;
+        
+        while (supplierName.empty()) {
+            cout << "Error: Supplier name cannot be empty!" << endl;
+            cout << "Enter Supplier Name: ";
+            getline(cin, supplierName);
+        }
+        
         cout << "Enter Contact Person: ";
         getline(cin, contactPerson);
+        
+        while (contactPerson.empty()) {
+            cout << "Error: Contact person cannot be empty!" << endl;
+            cout << "Enter Contact Person: ";
+            getline(cin, contactPerson);
+        }
+        
+        cout << "Enter Phone Number: ";
+        getline(cin, phone);
+        
+        string query = "INSERT INTO Supplier (supplier_name, contact_person, phone, status) VALUES ('" 
+                       + supplierName + "', '" + contactPerson + "', '" + phone + "', 'Active')";
+        db.executeQuery(query);
+        cout << "\n[OK] Supplier Added Successfully." << endl;
+        
+    } catch (const exception& e) {
+        cerr << "\n[ERROR] Failed to add supplier: " << e.what() << endl;
+        cin.clear();
+        cin.ignore(10000, '\n');
     }
-    
-    cout << "Enter Phone Number: ";
-    getline(cin, phone);
-    
-    string query = "INSERT INTO Supplier (supplier_name, contact_person, phone, status) VALUES ('" 
-                   + supplierName + "', '" + contactPerson + "', '" + phone + "', 'Active')";
-    db.executeQuery(query);
-    cout << "\n[OK] Supplier Added Successfully." << endl;
 }
 
 // READ - View all suppliers
