@@ -4,7 +4,7 @@ INCLUDES = -I"C:/Program Files/MySQL/MySQL Server 9.5/include"
 LDFLAGS = -L"C:/Program Files/MySQL/MySQL Server 9.5/lib"
 LIBS = -lmysql
 
-SRCS = main.cpp Database.cpp User.cpp Product.cpp Sales.cpp
+SRCS = main.cpp Database.cpp User.cpp Product.cpp Sales.cpp Supplier.cpp Dashboard.cpp PurchaseOrder.cpp Receiving.cpp
 OBJS = $(SRCS:.cpp=.o)
 TARGET = main.exe
 

@@ -13,6 +13,7 @@ public:
     void addSupplier(Database& db);
     void viewSuppliers(Database& db);
     void viewSupplier(Database& db, int supplierID);
+    void viewSupplierByName(Database& db, const string& supplierName);
     void updateSupplier(Database& db);
     void deleteSupplier(Database& db);
     void supplierMenu(Database& db);

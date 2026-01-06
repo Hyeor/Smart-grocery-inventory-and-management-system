@@ -14,11 +14,15 @@ void SalesManager::processSale(Database& db, int userID) {
         }
         
         int prodID, qty;
-        cout << "Enter Product ID to sell: ";
-        while (!(cin >> prodID) || prodID <= 0) {
+        cout << "Enter Product ID to sell (0 to go back): ";
+        while (!(cin >> prodID) || prodID < 0) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid input! Enter valid Product ID: ";
+            cout << "Invalid input! Enter valid Product ID (0 to go back): ";
+        }
+        if (prodID == 0) {
+            cin.ignore(10000, '\n');
+            return;
         }
         cout << "Enter Quantity: ";
         while (!(cin >> qty) || qty <= 0) {

@@ -19,7 +19,7 @@ if exist "C:\mingw64\bin\g++.exe" (
     set MYSQL_INCLUDE="C:\Program Files\MySQL\MySQL Server 9.5\include"
     set MYSQL_LIB="C:\Program Files\MySQL\MySQL Server 9.5\lib"
     
-    C:\mingw64\bin\g++.exe -o build\main.exe source\*.cpp ^
+    C:\mingw64\bin\g++.exe -o build\main.exe source\Database.cpp source\User.cpp source\Product.cpp source\Sales.cpp source\Supplier.cpp source\Dashboard.cpp source\PurchaseOrder.cpp source\Receiving.cpp source\main.cpp ^
         -I!HEADERS_PATH! ^
         -I!MYSQL_INCLUDE! ^
         -L!MYSQL_LIB! ^

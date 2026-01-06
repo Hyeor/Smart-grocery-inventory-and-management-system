@@ -3,6 +3,9 @@
 #include "Product.h"
 #include "Sales.h"
 #include "Supplier.h"
+#include "Dashboard.h"
+#include "PurchaseOrder.h"
+#include "Receiving.h"
 
 // Clear screen function
 void clearScreen() {
@@ -23,38 +26,52 @@ void displayDashboardHeader(string role) {
 // Display admin dashboard
 void showAdminDashboard(Database& db, UserManager& userMgr, 
                        InventoryManager& invMgr, SalesManager& salesMgr, 
-                       SupplierManager& supplierMgr) {
+                       SupplierManager& supplierMgr, PurchaseOrderManager& poMgr,
+                       ReceivingManager& recvMgr) {
+    DashboardManager dashMgr;
     int choice;
     while (true) {
         displayDashboardHeader("Admin");
         cout << "\nMain Menu:" << endl;
-        cout << "1. Inventory Management" << endl;
-        cout << "2. User Management" << endl;
-        cout << "3. Supplier Management" << endl;
-        cout << "4. Process Sale" << endl;
-        cout << "5. Logout" << endl;
+        cout << "1. Monitoring Dashboard" << endl;
+        cout << "2. Inventory Management" << endl;
+        cout << "3. User Management" << endl;
+        cout << "4. Supplier Management" << endl;
+        cout << "5. Purchase Order" << endl;
+        cout << "6. Receiving" << endl;
+        cout << "7. Process Sale" << endl;
+        cout << "8. Logout" << endl;
         cout << "\nSelect option: "; 
         
-        while (!(cin >> choice) || choice < 1 || choice > 5) {
+        while (!(cin >> choice) || choice < 1 || choice > 8) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-5: ";
+            cout << "Invalid choice! Select 1-8: ";
         }
         cin.ignore(10000, '\n');
 
         if (choice == 1) {
-            invMgr.inventoryPage(db);
+            dashMgr.showMonitoringDashboard(db);
         } 
         else if (choice == 2) {
-            userMgr.userManagementMenu(db);
+            invMgr.inventoryPage(db);
         } 
         else if (choice == 3) {
-            supplierMgr.supplierPage(db);
+            userMgr.userManagementMenu(db);
         } 
         else if (choice == 4) {
-            salesMgr.salesPage(db, 1);
+            supplierMgr.supplierPage(db);
         } 
         else if (choice == 5) {
+            poMgr.purchaseOrderPage(db);
+        } 
+        else if (choice == 6) {
+            recvMgr.receivingPage(db);
+        } 
+        else if (choice == 7) {
+            salesMgr.salesPage(db, 1);
+        } 
+        else if (choice == 8) {
             clearScreen();
             cout << "\nLogging out... Thank you for using Smart Grocery Management System!" << endl;
             break;
@@ -65,34 +82,49 @@ void showAdminDashboard(Database& db, UserManager& userMgr,
 // Display staff dashboard
 void showStaffDashboard(Database& db, UserManager& userMgr, 
                        InventoryManager& invMgr, SalesManager& salesMgr, 
-                       SupplierManager& supplierMgr) {
+                       SupplierManager& supplierMgr, PurchaseOrderManager& poMgr,
+                       ReceivingManager& recvMgr) {
+    (void)userMgr; // Staff doesn't have user management access
+    DashboardManager dashMgr;
     int choice;
     while (true) {
         displayDashboardHeader("Staff");
         cout << "\nMain Menu:" << endl;
-        cout << "1. Inventory Management" << endl;
-        cout << "2. Supplier Management" << endl;
-        cout << "3. Process Sale" << endl;
-        cout << "4. Logout" << endl;
+        cout << "1. Monitoring Dashboard" << endl;
+        cout << "2. Inventory Management" << endl;
+        cout << "3. Supplier Management" << endl;
+        cout << "4. Purchase Order" << endl;
+        cout << "5. Receiving" << endl;
+        cout << "6. Process Sale" << endl;
+        cout << "7. Logout" << endl;
         cout << "\nSelect option: "; 
         
-        while (!(cin >> choice) || choice < 1 || choice > 4) {
+        while (!(cin >> choice) || choice < 1 || choice > 7) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-4: ";
+            cout << "Invalid choice! Select 1-7: ";
         }
         cin.ignore(10000, '\n');
 
         if (choice == 1) {
-            invMgr.inventoryPage(db);
+            dashMgr.showMonitoringDashboard(db);
         } 
         else if (choice == 2) {
-            supplierMgr.supplierPage(db);
+            invMgr.inventoryPage(db);
         } 
         else if (choice == 3) {
-            salesMgr.salesPage(db, 1);
+            supplierMgr.supplierPage(db);
         } 
         else if (choice == 4) {
+            poMgr.purchaseOrderPage(db);
+        } 
+        else if (choice == 5) {
+            recvMgr.receivingPage(db);
+        } 
+        else if (choice == 6) {
+            salesMgr.salesPage(db, 1);
+        } 
+        else if (choice == 7) {
             clearScreen();
             cout << "\nLogging out... Thank you for using Smart Grocery Management System!" << endl;
             break;
@@ -102,8 +134,6 @@ void showStaffDashboard(Database& db, UserManager& userMgr,
 
 int main() {
     try {
-        cout << "\n=== Smart Grocery Management System ===" << endl;
-        
         Database db;
         
         // Check if database connection is valid
@@ -119,17 +149,34 @@ int main() {
         InventoryManager invMgr;
         SalesManager salesMgr;
         SupplierManager supplierMgr;
+        PurchaseOrderManager poMgr;
+        ReceivingManager recvMgr;
 
-        // 1. Authenticate
-        string role = userMgr.login(db);
+        // Main application loop - allows return to login after logout
+        while (true) {
+            clearScreen();
+            cout << "\n=== Smart Grocery Management System ===" << endl;
+            
+            // 1. Authenticate
+            string role = userMgr.login(db);
 
-        if (role == "") return 0; // Exit if failed
+            if (role == "") {
+                // User chose to exit from login
+                clearScreen();
+                cout << "\nThank you for using Smart Grocery Management System!" << endl;
+                cout << "Press Enter to exit...";
+                cin.get();
+                break;
+            }
 
-        // 2. Dashboard Loop based on role
-        if (role == "Admin") {
-            showAdminDashboard(db, userMgr, invMgr, salesMgr, supplierMgr);
-        } else {
-            showStaffDashboard(db, userMgr, invMgr, salesMgr, supplierMgr);
+            // 2. Dashboard Loop based on role
+            if (role == "ADMIN") {
+                showAdminDashboard(db, userMgr, invMgr, salesMgr, supplierMgr, poMgr, recvMgr);
+            } else {
+                showStaffDashboard(db, userMgr, invMgr, salesMgr, supplierMgr, poMgr, recvMgr);
+            }
+            
+            // After logout, loop continues and returns to login
         }
 
     } catch (const exception& e) {

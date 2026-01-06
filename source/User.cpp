@@ -3,45 +3,80 @@
 #include <cstdio>
 #include <stdexcept>
 #include <mysql.h>
+#include <ctime>
+#include <iomanip>
 #include "Database.h"
 #include "user.h"
 
 using namespace std;
 
-// CREATE - Add new user
+// CREATE - Add new staff user
 void UserManager::addUser(Database& db) {
     try {
         if (!db.conn) {
             throw runtime_error("Database connection is not available");
         }
         
-        string username, password;
+        string staffID, fullName, email, phone, position;
         int roleChoice;
         string role;
+        string defaultPassword = "admin";  // Default password for first login
         
-        cout << "\n=== ADD NEW USER ===" << endl;
-        cout << "Enter Username: ";
+        cout << "\n=== ADD NEW STAFF ===" << endl;
+        
+        // Generate Staff ID
+        staffID = generateStaffID(db);
+        cout << "\nAuto-generated Staff ID: " << staffID << endl;
+        
+        // Get Full Name
+        cout << "Enter Full Name (0 to cancel): ";
         cin.ignore();
-        getline(cin, username);
-        
-        while (username.empty()) {
-            cout << "Error: Username cannot be empty!" << endl;
-            cout << "Enter Username: ";
-            getline(cin, username);
+        getline(cin, fullName);
+        if (fullName == "0") return;
+        while (fullName.empty()) {
+            cout << "Error: Full Name cannot be empty!" << endl;
+            cout << "Enter Full Name (0 to cancel): ";
+            getline(cin, fullName);
+            if (fullName == "0") return;
         }
         
-        cout << "Enter Password: ";
-        password = getPasswordInput();
-        
-        while (password.empty()) {
-            cout << "Error: Password cannot be empty!" << endl;
-            cout << "Enter Password: ";
-            password = getPasswordInput();
+        // Get Email
+        cout << "Enter Email Address (0 to cancel): ";
+        getline(cin, email);
+        if (email == "0") return;
+        while (!isValidEmail(email)) {
+            cout << "Error: Invalid email format! Please try again." << endl;
+            cout << "Enter Email Address (0 to cancel): ";
+            getline(cin, email);
+            if (email == "0") return;
         }
-
-        cout << "\nSelect User Role:" << endl;
-        cout << "1. Admin" << endl;
-        cout << "2. Staff" << endl;
+        
+        // Get Phone Number
+        cout << "Enter Phone Number (0 to cancel): ";
+        getline(cin, phone);
+        if (phone == "0") return;
+        while (!isValidPhone(phone)) {
+            cout << "Error: Invalid phone number! Must contain at least 7 digits." << endl;
+            cout << "Enter Phone Number (0 to cancel): ";
+            getline(cin, phone);
+            if (phone == "0") return;
+        }
+        
+        // Get Position/Job Title
+        cout << "Enter Position/Job Title (0 to cancel): ";
+        getline(cin, position);
+        if (position == "0") return;
+        while (position.empty()) {
+            cout << "Error: Position cannot be empty!" << endl;
+            cout << "Enter Position/Job Title (0 to cancel): ";
+            getline(cin, position);
+            if (position == "0") return;
+        }
+        
+        // Select Role
+        cout << "\nSelect Role/Access Level:" << endl;
+        cout << "1. ADMIN (Full system access)" << endl;
+        cout << "2. STAFF (Limited access: Dashboard, Inventory, Sales)" << endl;
         cout << "Select: ";
         while (!(cin >> roleChoice) || roleChoice < 1 || roleChoice > 2) {
             cin.clear();
@@ -50,35 +85,41 @@ void UserManager::addUser(Database& db) {
         }
         cin.ignore();
         
-        if (roleChoice == 1) {
-            role = "Admin";
-        } else {
-            role = "Staff";
-        }
+        role = (roleChoice == 1) ? "ADMIN" : "STAFF";
         
-        // Use MySQL MD5 function to hash the password
-        string query = "INSERT INTO User (username, password, role) VALUES ('" 
-                       + username + "', MD5('" + password + "'), '" + role + "')";
+        // Get current timestamp
+        string dateCreated = getCurrentTimestamp();
+        
+        // Insert new staff with default password and password change flag
+        string query = "INSERT INTO User (staff_id, full_name, email, phone, position, role, "
+                      "password, account_status, password_change_required, date_created) "
+                      "VALUES ('" + staffID + "', '" + fullName + "', '" + email + "', '" 
+                      + phone + "', '" + position + "', '" + role + "', MD5('" + defaultPassword 
+                      + "'), 'ACTIVE', 1, '" + dateCreated + "')";
+        
         db.executeQuery(query);
-        cout << "[OK] User Added Successfully." << endl;
+        cout << "\n[OK] New staff account created successfully!" << endl;
+        cout << "Staff ID: " << staffID << endl;
+        cout << "Default Password: " << defaultPassword << endl;
+        cout << "[NOTE] Staff must change password on first login." << endl;
         
     } catch (const exception& e) {
-        cerr << "\n[ERROR] Failed to add user: " << e.what() << endl;
+        cerr << "\n[ERROR] Failed to add staff: " << e.what() << endl;
         cin.clear();
         cin.ignore(10000, '\n');
     }
 }
 
-// READ - View all users
+// READ - View all staff
 void UserManager::viewUsers(Database& db) {
     try {
         if (!db.conn) {
             throw runtime_error("Database connection is not available");
         }
         
-        string query = "SELECT user_id, username, role FROM User ORDER BY user_id";
+        string query = "SELECT staff_id, full_name, email, phone, position, role, account_status, date_created FROM User ORDER BY date_created DESC";
         if (mysql_query(db.conn, query.c_str())) {
-            throw runtime_error("Failed to fetch users: " + string(mysql_error(db.conn)));
+            throw runtime_error("Failed to fetch staff: " + string(mysql_error(db.conn)));
         }
         
         MYSQL_RES* res = mysql_store_result(db.conn);
@@ -88,19 +129,27 @@ void UserManager::viewUsers(Database& db) {
         
         MYSQL_ROW row;
 
-        cout << "\n=== LIST OF SYSTEM USERS ===" << endl;
-        cout << "========================================================================" << endl;
-        cout << "#  | User ID  | Username         | User Type                        " << endl;
-        cout << "========================================================================" << endl;
+        cout << "\n=== LIST OF STAFF ACCOUNTS ===" << endl;
+        cout << "===================================================================================================================================" << endl;
+        cout << "#  | Staff ID | Full Name                      | Position             | Role   | Status    | Date Created" << endl;
+        cout << "===================================================================================================================================" << endl;
         
         int count = 0;
         while ((row = mysql_fetch_row(res))) {
             count++;
-            printf("%-2d | %-8s | %-16s | %s\n",
-                   count, row[0], row[1], row[2]);
+            // Truncate long fields for display
+            string fullName = string(row[1]);
+            if (fullName.length() > 30) fullName = fullName.substr(0, 27) + "...";
+            
+            string position = string(row[4]);
+            if (position.length() > 20) position = position.substr(0, 17) + "...";
+            
+            printf("%-2d | %-8s | %-30s | %-20s | %-6s | %-9s | %s\n",
+                   count, row[0], fullName.c_str(), position.c_str(), 
+                   row[5], row[6], row[7]);
         }
-        cout << "========================================================================" << endl;
-        printf("Showing 1 to %d of %d entries\n", count, count);
+        cout << "===================================================================================================================================" << endl;
+        printf("Showing 1 to %d entries\n", count);
         
         mysql_free_result(res);
         
@@ -109,69 +158,115 @@ void UserManager::viewUsers(Database& db) {
     }
 }
 
-// READ - View single user by ID
-void UserManager::viewUser(Database& db, int userID) {
-    string query = "SELECT user_id, username, password, role FROM User WHERE user_id = " + to_string(userID);
-    mysql_query(db.conn, query.c_str());
-    MYSQL_RES* res = mysql_store_result(db.conn);
-    MYSQL_ROW row = mysql_fetch_row(res);
-    
-    if (row) {
-        cout << "\n--- User Details ---" << endl;
-        cout << "ID: " << row[0] << endl;
-        cout << "Username: " << row[1] << endl;
-        cout << "Password: " << row[2] << endl;
-        cout << "Role: " << row[3] << endl;
-        cout << "---------------------" << endl;
-    } else {
-        cout << "[ERROR] User not found." << endl;
+// READ - View single staff by Staff ID
+void UserManager::viewUser(Database& db, const string& staffID) {
+    try {
+        string query = "SELECT staff_id, full_name, email, phone, position, role, account_status, date_created, password_change_required, DATE_FORMAT(last_access, '%Y-%m-%d %H:%i:%s') as last_access_formatted FROM User WHERE staff_id = '" + staffID + "'";
+        
+        if (mysql_query(db.conn, query.c_str())) {
+            throw runtime_error("Failed to fetch staff: " + string(mysql_error(db.conn)));
+        }
+        
+        MYSQL_RES* res = mysql_store_result(db.conn);
+        if (!res) {
+            throw runtime_error("Failed to store result set");
+        }
+        
+        MYSQL_ROW row = mysql_fetch_row(res);
+        
+        if (row) {
+            cout << "\n--- STAFF DETAILS ---" << endl;
+            cout << "Full Name: " << row[1] << endl;
+            cout << "Email: " << row[2] << endl;
+            cout << "Phone: " << row[3] << endl;
+            cout << "Position: " << row[4] << endl;
+            cout << "Role/Access Level: " << row[5] << endl;
+            cout << "Account Status: " << row[6] << endl;
+            cout << "Date Created: " << row[7] << endl;
+            cout << "Last Access: " << (row[9] ? row[9] : "Never") << endl;
+            cout << "Password Change Required: " << (atoi(row[8]) ? "YES" : "NO") << endl;
+            cout << "---------------------" << endl;
+        } else {
+            cout << "[ERROR] Staff not found." << endl;
+        }
+        
+        mysql_free_result(res);
+        
+    } catch (const exception& e) {
+        cerr << "\n[ERROR] " << e.what() << endl;
     }
 }
 
-// UPDATE - Update user details
+// UPDATE - Update staff details
 void UserManager::updateUser(Database& db) {
-    int userID;
-    cout << "Enter User ID to update: ";
-    while (!(cin >> userID) || userID <= 0) {
-        cin.clear();
-        cin.ignore(10000, '\n');
-        cout << "Invalid input! Enter valid User ID: ";
-    }
+    string staffID;
+    cout << "Enter Staff ID to update (0 to go back): ";
+    getline(cin, staffID);
     
-    viewUser(db, userID);
+    if (staffID == "0") return;
+    
+    viewUser(db, staffID);
     
     cout << "\nWhat do you want to update?" << endl;
-    cout << "1. Username" << endl;
-    cout << "2. Password" << endl;
-    cout << "3. User Role" << endl;
+    cout << "1. Full Name" << endl;
+    cout << "2. Email" << endl;
+    cout << "3. Phone" << endl;
+    cout << "4. Position" << endl;
+    cout << "5. Role/Access Level" << endl;
+    cout << "6. Reset Password to 'admin'" << endl;
     cout << "Select: ";
     
     int choice;
-    while (!(cin >> choice) || choice < 1 || choice > 3) {
+    while (!(cin >> choice) || choice < 1 || choice > 6) {
         cin.clear();
         cin.ignore(10000, '\n');
-        cout << "Invalid choice! Select 1-3: ";
+        cout << "Invalid choice! Select 1-6: ";
     }
     cin.ignore();
     
     string query;
     if (choice == 1) {
-        string newUsername;
-        cout << "Enter new Username: ";
-        getline(cin, newUsername);
-        query = "UPDATE User SET username = '" + newUsername + "' WHERE user_id = " + to_string(userID);
+        string newName;
+        cout << "Enter new Full Name (0 to cancel): ";
+        getline(cin, newName);
+        if (newName == "0") return;
+        query = "UPDATE User SET full_name = '" + newName + "' WHERE staff_id = '" + staffID + "'";
     }
     else if (choice == 2) {
-        string newPassword;
-        cout << "Enter new Password: ";
-        newPassword = getPasswordInput();
-        // Use MySQL MD5 function to hash the password
-        query = "UPDATE User SET password = MD5('" + newPassword + "') WHERE user_id = " + to_string(userID);
+        string newEmail;
+        cout << "Enter new Email (0 to cancel): ";
+        getline(cin, newEmail);
+        if (newEmail == "0") return;
+        while (!isValidEmail(newEmail)) {
+            cout << "Invalid email format! Please try again (0 to cancel): ";
+            getline(cin, newEmail);
+            if (newEmail == "0") return;
+        }
+        query = "UPDATE User SET email = '" + newEmail + "' WHERE staff_id = '" + staffID + "'";
     }
     else if (choice == 3) {
-        cout << "Select new User Role:" << endl;
-        cout << "1. Admin" << endl;
-        cout << "2. Staff" << endl;
+        string newPhone;
+        cout << "Enter new Phone (0 to cancel): ";
+        getline(cin, newPhone);
+        if (newPhone == "0") return;
+        while (!isValidPhone(newPhone)) {
+            cout << "Invalid phone format! Please try again (0 to cancel): ";
+            getline(cin, newPhone);
+            if (newPhone == "0") return;
+        }
+        query = "UPDATE User SET phone = '" + newPhone + "' WHERE staff_id = '" + staffID + "'";
+    }
+    else if (choice == 4) {
+        string newPosition;
+        cout << "Enter new Position (0 to cancel): ";
+        getline(cin, newPosition);
+        if (newPosition == "0") return;
+        query = "UPDATE User SET position = '" + newPosition + "' WHERE staff_id = '" + staffID + "'";
+    }
+    else if (choice == 5) {
+        cout << "Select new Role:" << endl;
+        cout << "1. ADMIN" << endl;
+        cout << "2. STAFF" << endl;
         cout << "Select: ";
         
         int roleChoice;
@@ -181,60 +276,135 @@ void UserManager::updateUser(Database& db) {
             cout << "Invalid choice! Select 1-2: ";
         }
         
-        string newRole;
-        if (roleChoice == 1) {
-            newRole = "Admin";
-        } else {
-            newRole = "Staff";
-        }
+        string newRole = (roleChoice == 1) ? "ADMIN" : "STAFF";
+        query = "UPDATE User SET role = '" + newRole + "' WHERE staff_id = '" + staffID + "'";
+    }
+    else if (choice == 6) {
+        cout << "\nAre you sure you want to reset the password to 'admin'? (y/n): ";
+        char confirm;
+        cin >> confirm;
         
-        query = "UPDATE User SET role = '" + newRole + "' WHERE user_id = " + to_string(userID);
+        if (confirm == 'y' || confirm == 'Y') {
+            query = "UPDATE User SET password = MD5('admin'), password_change_required = 1 WHERE staff_id = '" + staffID + "'";
+        } else {
+            cout << "Password reset cancelled." << endl;
+            return;
+        }
     }
     
     db.executeQuery(query);
-    cout << "[OK] User Updated Successfully." << endl;
+    cout << "[OK] Staff updated successfully." << endl;
 }
 
-// DELETE - Delete user
-void UserManager::deleteUser(Database& db) {
-    int userID;
-    cout << "Enter User ID to delete: ";
-    while (!(cin >> userID) || userID <= 0) {
-        cin.clear();
-        cin.ignore(10000, '\n');
-        cout << "Invalid input! Enter valid User ID: ";
-    }
+// DEACTIVATE - Deactivate staff account
+void UserManager::deactivateUser(Database& db) {
+    string staffID;
+    cout << "Enter Staff ID to deactivate (0 to go back): ";
+    cin.ignore();
+    getline(cin, staffID);
     
-    viewUser(db, userID);
+    if (staffID == "0") return;
     
-    cout << "\nAre you sure you want to delete this user? (y/n): ";
+    viewUser(db, staffID);
+    
+    cout << "\nAre you sure you want to deactivate this account? (y/n): ";
     char confirm;
     cin >> confirm;
     
     if (confirm == 'y' || confirm == 'Y') {
-        string query = "DELETE FROM User WHERE user_id = " + to_string(userID);
+        string query = "UPDATE User SET account_status = 'INACTIVE' WHERE staff_id = '" + staffID + "'";
         db.executeQuery(query);
-        cout << "[OK] User Deleted Successfully." << endl;
+        cout << "[OK] Staff account deactivated successfully." << endl;
     } else {
-        cout << "Deletion cancelled." << endl;
+        cout << "Deactivation cancelled." << endl;
     }
 }
 
-// User Management Menu
+// REACTIVATE - Reactivate staff account
+void UserManager::reactivateUser(Database& db) {
+    string staffID;
+    cout << "Enter Staff ID to reactivate (0 to go back): ";
+    cin.ignore();
+    getline(cin, staffID);
+    
+    if (staffID == "0") return;
+    
+    viewUser(db, staffID);
+    
+    cout << "\nAre you sure you want to reactivate this account? (y/n): ";
+    char confirm;
+    cin >> confirm;
+    
+    if (confirm == 'y' || confirm == 'Y') {
+        string query = "UPDATE User SET account_status = 'ACTIVE' WHERE staff_id = '" + staffID + "'";
+        db.executeQuery(query);
+        cout << "[OK] Staff account reactivated successfully." << endl;
+    } else {
+        cout << "Reactivation cancelled." << endl;
+    }
+}
+
+// Combined Status Management - Change staff account status
+void UserManager::manageStaffStatus(Database& db) {
+    string staffID;
+    cout << "Enter Staff ID (0 to go back): ";
+    cin.ignore();
+    getline(cin, staffID);
+    
+    if (staffID == "0") return;
+    
+    viewUser(db, staffID);
+    
+    cout << "\nSelect Action:" << endl;
+    cout << "1. Deactivate Account" << endl;
+    cout << "2. Reactivate Account" << endl;
+    cout << "3. Cancel" << endl;
+    cout << "Select: ";
+    
+    int statusChoice;
+    while (!(cin >> statusChoice) || statusChoice < 1 || statusChoice > 3) {
+        cin.clear();
+        cin.ignore(10000, '\n');
+        cout << "Invalid choice! Select 1-3: ";
+    }
+    
+    if (statusChoice == 3) {
+        return;
+    }
+    
+    cout << "\nAre you sure you want to " 
+         << (statusChoice == 1 ? "deactivate" : "reactivate") 
+         << " this account? (y/n): ";
+    char confirm;
+    cin >> confirm;
+    
+    if (confirm == 'y' || confirm == 'Y') {
+        string newStatus = (statusChoice == 1) ? "INACTIVE" : "ACTIVE";
+        string query = "UPDATE User SET account_status = '" + newStatus + "' WHERE staff_id = '" + staffID + "'";
+        db.executeQuery(query);
+        cout << "[OK] Staff account " 
+             << (statusChoice == 1 ? "deactivated" : "reactivated") 
+             << " successfully." << endl;
+    } else {
+        cout << "Action cancelled." << endl;
+    }
+}
+
+// Staff Management Menu
 void UserManager::userManagementMenu(Database& db) {
     int choice;
     while (true) {
         system("cls");
         cout << "\n";
         cout << "========================================" << endl;
-        cout << "      USER MANAGEMENT SYSTEM            " << endl;
+        cout << "    STAFF MANAGEMENT SYSTEM            " << endl;
         cout << "========================================" << endl;
         cout << "\nOperations:" << endl;
-        cout << "1. Create New User" << endl;
-        cout << "2. View All Users" << endl;
-        cout << "3. View User Details" << endl;
-        cout << "4. Update User" << endl;
-        cout << "5. Delete User" << endl;
+        cout << "1. Register New Staff" << endl;
+        cout << "2. View All Staff" << endl;
+        cout << "3. View Staff Details" << endl;
+        cout << "4. Update Staff Information" << endl;
+        cout << "5. Status Staff Account" << endl;
         cout << "6. Back to Dashboard" << endl;
         cout << "========================================" << endl;
         cout << "Select option: ";
@@ -249,16 +419,18 @@ void UserManager::userManagementMenu(Database& db) {
         if (choice == 1) {
             system("cls");
             cout << "\n========================================" << endl;
-            cout << "          CREATE NEW USER              " << endl;
+            cout << "      REGISTER NEW STAFF              " << endl;
             cout << "========================================\n" << endl;
             addUser(db);
+            cout << "\n";
+            viewUsers(db);
             cout << "\nPress Enter to continue...";
             cin.ignore();
         }
         else if (choice == 2) {
             system("cls");
             cout << "\n========================================" << endl;
-            cout << "          VIEW ALL USERS               " << endl;
+            cout << "         VIEW ALL STAFF               " << endl;
             cout << "========================================\n" << endl;
             viewUsers(db);
             cout << "\nPress Enter to continue...";
@@ -267,35 +439,35 @@ void UserManager::userManagementMenu(Database& db) {
         else if (choice == 3) {
             system("cls");
             cout << "\n========================================" << endl;
-            cout << "         VIEW USER DETAILS             " << endl;
+            cout << "      VIEW STAFF DETAILS              " << endl;
             cout << "========================================\n" << endl;
-            int userID;
-            cout << "Enter User ID: ";
-            while (!(cin >> userID) || userID <= 0) {
-                cin.clear();
-                cin.ignore(10000, '\n');
-                cout << "Invalid input! Enter valid User ID: ";
-            }
-            cin.ignore(10000, '\n');
-            viewUser(db, userID);
+            string staffID;
+            cout << "Enter Staff ID (0 to go back): ";
+            getline(cin, staffID);
+            if (staffID == "0") continue;
+            viewUser(db, staffID);
             cout << "\nPress Enter to continue...";
             cin.ignore();
         }
         else if (choice == 4) {
             system("cls");
             cout << "\n========================================" << endl;
-            cout << "            UPDATE USER               " << endl;
+            cout << "    UPDATE STAFF INFORMATION          " << endl;
             cout << "========================================\n" << endl;
             updateUser(db);
+            cout << "\n";
+            viewUsers(db);
             cout << "\nPress Enter to continue...";
             cin.ignore();
         }
         else if (choice == 5) {
             system("cls");
             cout << "\n========================================" << endl;
-            cout << "            DELETE USER               " << endl;
+            cout << "      STATUS STAFF ACCOUNT            " << endl;
             cout << "========================================\n" << endl;
-            deleteUser(db);
+            manageStaffStatus(db);
+            cout << "\n";
+            viewUsers(db);
             cout << "\nPress Enter to continue...";
             cin.ignore();
         }

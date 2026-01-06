@@ -16,8 +16,8 @@ public:
     // READ - View all products
     void viewInventory(Database& db);
     
-    // READ - View single product by ID
-    void viewProduct(Database& db, int productID);
+    // READ - View single product by name
+    void viewProduct(Database& db, string productName);
     
     // UPDATE - Update product details
     void updateProduct(Database& db);
