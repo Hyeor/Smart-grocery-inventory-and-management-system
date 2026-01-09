@@ -5,11 +5,47 @@
 #include <cstdio>
 #include <stdexcept>
 #include <limits>
+#include <sstream>
+#include <algorithm>
 #include <mysql.h>
 #include "Database.h"
 #include "PurchaseOrder.h"
 
 using namespace std;
+
+// Struct for receiving items
+struct ReceivingItemInput {
+    int productId;
+    string name;
+    string unit;
+    double poQuantity;
+    double unitPrice;
+    double receivedQuantity;
+};
+
+// ANSI Color codes for console output
+#define COLOR_RESET     "\033[0m"
+#define COLOR_YELLOW    "\033[33m"
+#define COLOR_GREEN     "\033[32m"
+#define COLOR_RED       "\033[31m"
+
+// Helper function to get colored status
+inline string getColoredStatus(const string& status) {
+    if (status == "Pending" || status == "Approved") {
+        return string(COLOR_YELLOW) + status + string(COLOR_RESET);
+    } else if (status == "Received") {
+        return string(COLOR_GREEN) + status + string(COLOR_RESET);
+    }
+    return status;
+}
+
+// Helper to print aligned amount rows: label left, amount right after "RM "
+static void printAmountRow(const string& label, double amount) {
+    const int LABEL_WIDTH = 45; // ensure "RM" aligns across rows
+    cout << left << setw(LABEL_WIDTH) << label;
+    cout << "RM " << right << setw(9) << fixed << setprecision(2) << amount << endl;
+    cout << left; // restore left alignment for subsequent labels
+}
 
 // Generate unique PO Code in format PO-0001
 string PurchaseOrderManager::generatePOCode(Database& db) {
@@ -90,7 +126,7 @@ void PurchaseOrderManager::displaySuppliers(Database& db) {
 // Display items (products) by selected supplier
 void PurchaseOrderManager::displayItemsBySupplier(Database& db, int supplierID) {
     try {
-        string query = "SELECT product_id, name, unit, cost_price, stock_quantity FROM Product WHERE supplier_id = " 
+        string query = "SELECT product_id, name, unit, cost_price, stock_quantity, unit_size FROM Product WHERE supplier_id = " 
                        + to_string(supplierID) + " ORDER BY name";
         
         if (mysql_query(db.conn, query.c_str())) {
@@ -105,17 +141,40 @@ void PurchaseOrderManager::displayItemsBySupplier(Database& db, int supplierID) 
         MYSQL_ROW row;
         
         cout << "\n=== ITEMS FROM SELECTED SUPPLIER ===" << endl;
-        cout << "=========================================================================" << endl;
-        cout << "ID   | Item Name                    | Unit      | Cost Price | Stock    " << endl;
-        cout << "=========================================================================" << endl;
+        cout << "================================================================================" << endl;
+        cout << "ID   | Item Name                    | Current Stock in Inventory         " << endl;
+        cout << "================================================================================" << endl;
         
         int count = 0;
         while ((row = mysql_fetch_row(res))) {
             count++;
-            printf("%-4s | %-28s | %-9s | RM %-7s | %-8s\n", 
-                   row[0], row[1], row[2], row[3], row[4]);
+            // Calculate stock like inventory list: stock_quantity / unit_size
+            double quantity = row[4] ? stod(string(row[4])) : 0.0;
+            double unitSize = row[5] ? stod(string(row[5])) : 1.0;
+            double packs = unitSize > 0 ? quantity / unitSize : quantity;
+            
+            string unit = row[2] ? string(row[2]) : "pcs";
+            string unitLower = unit;
+            transform(unitLower.begin(), unitLower.end(), unitLower.begin(), ::tolower);
+            
+            // Format stock like inventory list (no unit for kg/g/litre/ml)
+            stringstream ss;
+            ss << fixed << setprecision(2) << packs;
+            string packsStr = ss.str();
+            while (!packsStr.empty() && packsStr.back() == '0') packsStr.pop_back();
+            if (!packsStr.empty() && packsStr.back() == '.') packsStr.pop_back();
+            
+            string stockDisplay;
+            if (unitLower == "kg" || unitLower == "g" || unitLower == "litre" || unitLower == "ml") {
+                stockDisplay = packsStr; // number only
+            } else {
+                stockDisplay = packsStr + " " + unit; // with unit
+            }
+            
+            printf("%-4s | %-28s | %-33s\n", 
+                   row[0], row[1], stockDisplay.c_str());
         }
-        cout << "=========================================================================" << endl;
+        cout << "================================================================================" << endl;
         
         if (count == 0) {
             cout << "No items found for this supplier." << endl;
@@ -195,11 +254,17 @@ void PurchaseOrderManager::displayPOSummary(const vector<POItem>& items, double 
     cout << "\n=== PURCHASE ORDER SUMMARY ===" << endl;
     cout << "-----------------------------------------------------" << endl;
     cout << fixed << setprecision(2);
-    cout << "Sub Total:                                  RM " << subTotal << endl;
-    cout << "Discount (" << discount << "%):                            RM " << discountAmount << endl;
-    cout << "Tax (" << tax << "%):                                 RM " << taxAmount << endl;
+    printAmountRow("Sub Total:", subTotal);
+    {
+        ostringstream dlabel; dlabel << "Discount (" << fixed << setprecision(2) << discount << "%):";
+        printAmountRow(dlabel.str(), discountAmount);
+    }
+    {
+        ostringstream tlabel; tlabel << "Tax (" << fixed << setprecision(2) << tax << "%):";
+        printAmountRow(tlabel.str(), taxAmount);
+    }
     cout << "-----------------------------------------------------" << endl;
-    cout << "Total:                                      RM " << total << endl;
+    printAmountRow("Total:", total);
     cout << "-----------------------------------------------------" << endl;
 }
 
@@ -476,12 +541,15 @@ void PurchaseOrderManager::createPurchaseOrder(Database& db) {
         int poID = stoi(idRow[0]);
         mysql_free_result(idRes);
         
-        // Insert purchase order items
+        // Insert purchase order items (stock will be updated only when order is received)
         for (const auto& item : items) {
             string insertItemQuery = "INSERT INTO PurchaseOrderItem (po_id, product_id, quantity, unit_price, total_price) VALUES ("
                                      + to_string(poID) + ", " + to_string(item.itemId) + ", " + to_string(item.quantity) + ", "
                                      + to_string(item.costPrice) + ", " + to_string(item.totalCost) + ")";
             db.executeQuery(insertItemQuery);
+            
+            // NOTE: Stock is NOT updated here - it will be updated when the order is received
+            // This prevents double-counting of inventory
         }
         
         cout << "\n[OK] Purchase Order Created Successfully!" << endl;
@@ -522,8 +590,10 @@ void PurchaseOrderManager::viewAllPurchaseOrders(Database& db) {
         int count = 0;
         while ((row = mysql_fetch_row(res))) {
             count++;
-            printf("%-8s | %-24s | RM %-9s | %-9s | %s\n",
-                   row[1], row[2], row[3], row[4], row[5]);
+            string coloredStatus = getColoredStatus(row[4] ? row[4] : "");
+            printf("%-8s | %-24s | RM %-9s | ", row[1], row[2], row[3]);
+            cout << coloredStatus;
+            printf(" | %s\n", row[5]);
         }
         cout << "==================================================================================" << endl;
         printf("Showing 1 to %d of %d entries\n", count, count);
@@ -563,8 +633,10 @@ void PurchaseOrderManager::viewPurchaseOrderDetails(Database& db) {
         int count = 0;
         while ((listRow = mysql_fetch_row(listRes))) {
             count++;
-            printf("%-8s | %-24s | RM %-9s | %-9s | %s\n",
-                   listRow[0], listRow[1], listRow[2], listRow[3], listRow[4]);
+            string coloredStatus = getColoredStatus(listRow[3] ? listRow[3] : "");
+            printf("%-8s | %-24s | RM %-9s | ", listRow[0], listRow[1], listRow[2]);
+            cout << coloredStatus;
+            printf(" | %s\n", listRow[4]);
         }
         cout << "==================================================================================" << endl;
         
@@ -665,20 +737,346 @@ void PurchaseOrderManager::viewPurchaseOrderDetails(Database& db) {
         
         mysql_free_result(itemsRes);
         
-        // Display summary
+        // Display summary (aligned like list table)
         cout << "\n=== SUMMARY ===" << endl;
         cout << "-----------------------------------------------------" << endl;
-        cout << "Sub Total:                                  RM " << subTotal << endl;
-        cout << "Discount (" << discountPercent << "%):                            RM " << discountAmount << endl;
-        cout << "Tax (" << taxPercent << "%):                                 RM " << taxAmount << endl;
+        {
+            double sub = stod(subTotal);
+            printAmountRow("Sub Total:", sub);
+        }
+        {
+            double dp = stod(discountPercent);
+            double da = stod(discountAmount);
+            ostringstream dlabel; dlabel << "Discount (" << fixed << setprecision(2) << dp << "%):";
+            printAmountRow(dlabel.str(), da);
+        }
+        {
+            double tp = stod(taxPercent);
+            double ta = stod(taxAmount);
+            ostringstream tlabel; tlabel << "Tax (" << fixed << setprecision(2) << tp << "%):";
+            printAmountRow(tlabel.str(), ta);
+        }
         cout << "-----------------------------------------------------" << endl;
-        cout << "Total:                                      RM " << totalAmount << endl;
+        {
+            double tot = stod(totalAmount);
+            printAmountRow("Total:", tot);
+        }
         cout << "-----------------------------------------------------" << endl;
         
         if (!remarks.empty()) {
             cout << "\nRemarks: " << remarks << endl;
         }
         
+    } catch (const exception& e) {
+        cerr << "\n[ERROR] " << e.what() << endl;
+    }
+}
+
+// RECEIVE - Receive a purchase order
+void PurchaseOrderManager::receivePurchaseOrder(Database& db) {
+    try {
+        // Show list of pending purchase orders first
+        cout << "\n=== PENDING PURCHASE ORDERS ===" << endl;
+        string listQuery = "SELECT po.po_code, COALESCE(s.supplier_name, 'Unknown Supplier'), "
+                       "po.total_amount, po.status, po.order_date "
+                       "FROM PurchaseOrder po "
+                       "LEFT JOIN Supplier s ON po.supplier_id = s.supplier_id "
+                       "WHERE po.status IN ('Pending', 'Approved') "
+                       "ORDER BY po.order_date DESC";
+
+        if (mysql_query(db.conn, listQuery.c_str())) {
+            throw runtime_error("Failed to fetch purchase orders: " + string(mysql_error(db.conn)));
+        }
+
+        MYSQL_RES* listRes = mysql_store_result(db.conn);
+        if (!listRes) {
+            throw runtime_error("Failed to store result set");
+        }
+
+        MYSQL_ROW listRow;
+
+        cout << "==================================================================================" << endl;
+        cout << "PO Code  | Supplier                 | Total Amount | Status    | Order Date     " << endl;
+        cout << "==================================================================================" << endl;
+
+        int count = 0;
+        while ((listRow = mysql_fetch_row(listRes))) {
+            count++;
+            printf("%-8s | %-24s | RM %-9s | %-9s | %s\n",
+                   listRow[0], listRow[1], listRow[2], listRow[3], listRow[4]);
+        }
+        cout << "==================================================================================" << endl;
+
+        mysql_free_result(listRes);
+
+        if (count == 0) {
+            cout << "No pending purchase orders available to receive." << endl;
+            return;
+        }
+
+        string poCode;
+        cout << "\nEnter P.O. Code to receive (0 to go back): ";
+        getline(cin >> ws, poCode);
+
+        if (poCode == "0") {
+            return;
+        }
+
+        if (poCode.empty()) {
+            cout << "[ERROR] P.O. Code cannot be empty!" << endl;
+            return;
+        }
+
+        // Fetch PO header
+        string poQuery = "SELECT po.po_id, po.po_code, s.supplier_name, po.discount_percent, po.tax_percent, po.status "
+                         "FROM PurchaseOrder po "
+                         "INNER JOIN Supplier s ON po.supplier_id = s.supplier_id "
+                         "WHERE po.po_code = '" + poCode + "'";
+
+        if (mysql_query(db.conn, poQuery.c_str())) {
+            throw runtime_error("Failed to fetch purchase order: " + string(mysql_error(db.conn)));
+        }
+
+        MYSQL_RES* poRes = mysql_store_result(db.conn);
+        if (!poRes) {
+            throw runtime_error("Failed to store result set");
+        }
+
+        MYSQL_ROW poRow = mysql_fetch_row(poRes);
+        if (!poRow) {
+            cout << "[ERROR] Purchase order not found." << endl;
+            mysql_free_result(poRes);
+            return;
+        }
+
+        string status = poRow[5] ? poRow[5] : "";
+        if (status == "Received") {
+            cout << "[INFO] This purchase order is already marked as Received." << endl;
+            mysql_free_result(poRes);
+            return;
+        }
+
+        int poId = stoi(poRow[0]);
+        string supplierName = poRow[2];
+        double defaultDiscount = stod(poRow[3]);
+        double defaultTax = stod(poRow[4]);
+        mysql_free_result(poRes);
+
+        // Fetch PO items
+        string itemsQuery = "SELECT poi.product_id, p.name, p.unit, poi.quantity, poi.unit_price "
+                            "FROM PurchaseOrderItem poi "
+                            "INNER JOIN Product p ON poi.product_id = p.product_id "
+                            "INNER JOIN PurchaseOrder po ON poi.po_id = po.po_id "
+                            "WHERE po.po_id = " + to_string(poId);
+
+        if (mysql_query(db.conn, itemsQuery.c_str())) {
+            throw runtime_error("Failed to fetch purchase order items: " + string(mysql_error(db.conn)));
+        }
+
+        MYSQL_RES* itemsRes = mysql_store_result(db.conn);
+        if (!itemsRes) {
+            throw runtime_error("Failed to store result set");
+        }
+
+        vector<ReceivingItemInput> items;
+        MYSQL_ROW itemRow;
+
+        while ((itemRow = mysql_fetch_row(itemsRes))) {
+            ReceivingItemInput it;
+            it.productId = stoi(itemRow[0]);
+            it.name = itemRow[1];
+            it.unit = itemRow[2];
+            it.poQuantity = stod(itemRow[3]);
+            it.unitPrice = stod(itemRow[4]);
+            it.receivedQuantity = 0.0;
+            items.push_back(it);
+        }
+        mysql_free_result(itemsRes);
+
+        if (items.empty()) {
+            cout << "[ERROR] No items found for this purchase order." << endl;
+            return;
+        }
+
+        // Input received quantities
+        cout << "\n========================================" << endl;
+        cout << "          RECEIVE PURCHASE ORDER         " << endl;
+        cout << "========================================" << endl;
+        cout << "P.O. Code: " << poCode << endl;
+        cout << "Supplier: " << supplierName << endl;
+        cout << "========================================" << endl;
+
+        cout << "\n=== ITEMS TO RECEIVE ===" << endl;
+        cout << "=====================================================================================" << endl;
+        cout << "No. | PO Qty   | Unit      | Item Name                    | Unit Price | Max Allowed" << endl;
+        cout << "=====================================================================================" << endl;
+        for (size_t i = 0; i < items.size(); i++) {
+            printf("%-3zu | %-8.2f | %-9s | %-28s | RM %-7.2f | %-11.2f\n",
+                   i + 1, items[i].poQuantity, items[i].unit.c_str(), items[i].name.c_str(), items[i].unitPrice, items[i].poQuantity);
+        }
+        cout << "=====================================================================================" << endl;
+
+        for (auto& it : items) {
+            cout << "Enter received quantity for '" << it.name << "' (max " << fixed << setprecision(2) << it.poQuantity << "): ";
+            double qty;
+            while (!(cin >> qty) || qty < 0 || qty > it.poQuantity) {
+                cin.clear();
+                cin.ignore(10000, '\n');
+                cout << "Invalid input! Enter value between 0 and " << it.poQuantity << ": ";
+            }
+            cin.ignore();
+            it.receivedQuantity = qty;
+        }
+
+        // Ensure at least one item received
+        double subTotal = 0.0;
+        for (const auto& it : items) {
+            subTotal += it.receivedQuantity * it.unitPrice;
+        }
+        if (subTotal <= 0) {
+            cout << "[ERROR] No quantities received. Nothing to update." << endl;
+            return;
+        }
+
+        // Discount and tax input with defaults
+        cout << "\nEnter discount percentage (0-100, press Enter to keep " << defaultDiscount << "): ";
+        string discInput;
+        getline(cin, discInput);
+        double discount = defaultDiscount;
+        if (!discInput.empty()) {
+            try {
+                discount = stod(discInput);
+            } catch (...) {
+                discount = defaultDiscount;
+            }
+        }
+        if (discount < 0) discount = 0;
+        if (discount > 100) discount = 100;
+
+        cout << "Enter tax percentage (0-100, press Enter to keep " << defaultTax << "): ";
+        string taxInput;
+        getline(cin, taxInput);
+        double tax = defaultTax;
+        if (!taxInput.empty()) {
+            try {
+                tax = stod(taxInput);
+            } catch (...) {
+                tax = defaultTax;
+            }
+        }
+        if (tax < 0) tax = 0;
+        if (tax > 100) tax = 100;
+
+        double discountAmount = (subTotal * discount) / 100.0;
+        double afterDiscount = subTotal - discountAmount;
+        double taxAmount = (afterDiscount * tax) / 100.0;
+        double total = afterDiscount + taxAmount;
+
+        // Calculate total PO quantity and received quantity for comparison
+        double totalPOQuantity = 0.0;
+        double totalReceivedQuantity = 0.0;
+        for (const auto& it : items) {
+            totalPOQuantity += it.poQuantity;
+            totalReceivedQuantity += it.receivedQuantity;
+        }
+
+        // Check if received quantity is less than PO quantity
+        bool isPartialReceive = (totalReceivedQuantity < totalPOQuantity);
+
+        // Show summary with aligned amounts
+        cout << "\n=== RECEIVING SUMMARY ===" << endl;
+        cout << "-----------------------------------------------------" << endl;
+        cout << fixed << setprecision(2);
+        printAmountRow("Sub Total:", subTotal);
+        {
+            ostringstream dlabel; dlabel << "Discount (" << fixed << setprecision(2) << discount << "%):";
+            printAmountRow(dlabel.str(), discountAmount);
+        }
+        {
+            ostringstream tlabel; tlabel << "Tax (" << fixed << setprecision(2) << tax << "%):";
+            printAmountRow(tlabel.str(), taxAmount);
+        }
+        cout << "-----------------------------------------------------" << endl;
+        printAmountRow("Total:", total);
+        cout << "-----------------------------------------------------" << endl;
+
+        // Show quantity comparison
+        cout << "\n=== QUANTITY COMPARISON ===" << endl;
+        cout << "Total PO Quantity:          " << totalPOQuantity << endl;
+        cout << "Total Received Quantity:    " << totalReceivedQuantity << endl;
+        cout << "-----------------------------------------------------" << endl;
+
+        if (isPartialReceive) {
+            cout << COLOR_YELLOW << "[WARNING] PARTIAL RECEIVING DETECTED!" << COLOR_RESET << endl;
+            cout << "You are receiving only " << totalReceivedQuantity << " out of " << totalPOQuantity << " units." << endl;
+            cout << "Shortage: " << (totalPOQuantity - totalReceivedQuantity) << " units" << endl;
+            cout << "\nProceed with partial receiving? (Y/N): ";
+            char partialConfirm;
+            cin >> partialConfirm;
+            cin.ignore();
+            
+            if (partialConfirm != 'Y' && partialConfirm != 'y') {
+                cout << "[INFO] Receive operation cancelled." << endl;
+                return;
+            }
+        }
+
+        cout << "\nConfirm receive and update PO status to 'Received'? (Y/N): ";
+        char confirm;
+        cin >> confirm;
+        cin.ignore();
+
+        if (confirm != 'Y' && confirm != 'y') {
+            cout << "[INFO] Receive operation cancelled." << endl;
+            return;
+        }
+
+        // Insert receiving record
+        string insertReceiving = "INSERT INTO Receiving (po_id, sub_total, discount_percent, discount_amount, tax_percent, tax_amount, total_amount, status) VALUES (" +
+                                 to_string(poId) + ", " + to_string(subTotal) + ", " + to_string(discount) + ", " + to_string(discountAmount) + ", " +
+                                 to_string(tax) + ", " + to_string(taxAmount) + ", " + to_string(total) + ", 'Received')";
+        db.executeQuery(insertReceiving);
+
+        // Get receiving id
+        string getIdQuery = "SELECT LAST_INSERT_ID()";
+        if (mysql_query(db.conn, getIdQuery.c_str())) {
+            throw runtime_error("Failed to get receiving ID");
+        }
+        MYSQL_RES* idRes = mysql_store_result(db.conn);
+        MYSQL_ROW idRow = mysql_fetch_row(idRes);
+        int receiveId = stoi(idRow[0]);
+        mysql_free_result(idRes);
+
+        // Insert receiving items
+        for (const auto& it : items) {
+            if (it.receivedQuantity <= 0) continue; // skip zero
+            double lineTotal = it.receivedQuantity * it.unitPrice;
+            string insertItem = "INSERT INTO ReceivingItem (receiving_id, product_id, received_qty, unit_price, total_price) VALUES (" +
+                                 to_string(receiveId) + ", " + to_string(it.productId) + ", " + to_string(it.receivedQuantity) + ", " +
+                                 to_string(it.unitPrice) + ", " + to_string(lineTotal) + ")";
+            db.executeQuery(insertItem);
+            
+            // UPDATE PRODUCT STOCK - Increase stock quantity when items are received
+            string updateStock = "UPDATE Product SET stock_quantity = stock_quantity + " + to_string(it.receivedQuantity) +
+                                 " WHERE product_id = " + to_string(it.productId);
+            db.executeQuery(updateStock);
+        }
+
+        // Update PO totals and status with received date/time
+        string updatePO = "UPDATE PurchaseOrder SET sub_total = " + to_string(subTotal) +
+                          ", discount_percent = " + to_string(discount) +
+                          ", discount_amount = " + to_string(discountAmount) +
+                          ", tax_percent = " + to_string(tax) +
+                          ", tax_amount = " + to_string(taxAmount) +
+                          ", total_amount = " + to_string(total) +
+                          ", status = 'Received'" +
+                          ", received_date = NOW() WHERE po_id = " + to_string(poId);
+        db.executeQuery(updatePO);
+
+        cout << "\n[OK] Purchase Order received successfully!" << endl;
+        cout << "     P.O. Code: " << poCode << endl;
+        cout << "     Total Received Amount: RM" << fixed << setprecision(2) << total << endl;
+
     } catch (const exception& e) {
         cerr << "\n[ERROR] " << e.what() << endl;
     }
@@ -697,14 +1095,15 @@ void PurchaseOrderManager::purchaseOrderMenu(Database& db) {
         cout << "1. Create New Purchase Order" << endl;
         cout << "2. View All Purchase Orders" << endl;
         cout << "3. View Purchase Order Details" << endl;
-        cout << "4. Back to Previous Menu" << endl;
+        cout << "4. Receive Purchase Order" << endl;
+        cout << "5. Back to Previous Menu" << endl;
         cout << "========================================" << endl;
         cout << "Select option: ";
         
-        while (!(cin >> choice) || choice < 1 || choice > 4) {
+        while (!(cin >> choice) || choice < 1 || choice > 5) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-4: ";
+            cout << "Invalid choice! Select 1-5: ";
         }
         cin.ignore(10000, '\n');
         
@@ -732,6 +1131,15 @@ void PurchaseOrderManager::purchaseOrderMenu(Database& db) {
             cin.get();
         }
         else if (choice == 4) {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "       RECEIVE PURCHASE ORDER           " << endl;
+            cout << "========================================\n" << endl;
+            receivePurchaseOrder(db);
+            cout << "\nPress Enter to continue...";
+            cin.get();
+        }
+        else if (choice == 5) {
             break;
         }
     }

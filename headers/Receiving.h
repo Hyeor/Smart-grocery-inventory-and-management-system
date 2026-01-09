@@ -25,7 +25,7 @@ public:
 
 private:
     void listPendingPurchaseOrders(Database& db);
-    void receivePurchaseOrder(Database& db);
+    void generateReceivedOrderReport(Database& db);
 };
 
 #endif

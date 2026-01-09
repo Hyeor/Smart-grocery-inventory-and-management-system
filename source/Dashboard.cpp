@@ -130,7 +130,7 @@ void DashboardManager::showSalesStatistics(Database& db) {
         
         MYSQL_ROW row = mysql_fetch_row(res);
         
-        cout << "\n[SALES] SALES STATISTICS" << endl;
+        cout << "\n💰 [SALES] SALES STATISTICS" << endl;
         cout << "======================================================================" << endl;
         
         if (row) {
@@ -173,7 +173,7 @@ void DashboardManager::showInventorySummary(Database& db) {
         
         MYSQL_ROW row = mysql_fetch_row(res);
         
-        cout << "\n[INVENTORY] INVENTORY SUMMARY" << endl;
+        cout << "\n📊 [INVENTORY] INVENTORY SUMMARY" << endl;
         cout << "======================================================================" << endl;
         
         if (row) {
@@ -203,9 +203,10 @@ void DashboardManager::showMonitoringDashboard(Database& db) {
     while (true) {
         system("cls");
         cout << "\n";
-        cout << "========================================================" << endl;
-        cout << "     REAL-TIME MONITORING DASHBOARD" << endl;
-        cout << "========================================================" << endl;
+        cout << "+" << string(62, '=') << "+" << endl;
+        cout << "|" << setw(21) << "REAL-TIME MONITORING DASHBOARD" << setw(12) << "|" << endl;
+        cout << "|" << setw(26) << "Live System Analytics" << setw(37) << "|" << endl;
+        cout << "+" << string(62, '=') << "+" << endl;
         
         // Show quick summaries
         showInventorySummary(db);
@@ -213,14 +214,15 @@ void DashboardManager::showMonitoringDashboard(Database& db) {
         showSupplierStatus(db);
         showSalesStatistics(db);
         
-        cout << "\n";
-        cout << "========================================" << endl;
-        cout << "           MONITORING OPTIONS           " << endl;
-        cout << "========================================" << endl;
-        cout << "1. Refresh Dashboard" << endl;
-        cout << "2. Set Low Stock Threshold" << endl;
-        cout << "3. Back to Main Menu" << endl;
-        cout << "========================================" << endl;
+        cout << "\n+-" << string(60, '-') << "-+" << endl;
+        cout << "| MONITORING OPTIONS" << setw(42) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "|  1. [REFRESH]  Update Dashboard Data" << setw(26) << "|" << endl;
+        cout << "|  2. [ALERT]    Set Low Stock Warning Level" << setw(20) << "|" << endl;
+        cout << "|  3. [BACK]     Return to Main Menu" << setw(28) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "+-" << string(60, '-') << "-+" << endl;
+        cout << "\nSelect option (1-3): ";
         cout << "Select option: ";
         
         while (!(cin >> choice) || choice < 1 || choice > 3) {

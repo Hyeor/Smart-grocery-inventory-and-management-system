@@ -6,21 +6,41 @@
 #include "Dashboard.h"
 #include "PurchaseOrder.h"
 #include "Receiving.h"
+#ifdef _WIN32
+#include <windows.h>
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
 
 // Clear screen function
 void clearScreen() {
     system("cls");
 }
 
+#ifdef _WIN32
+// Enable ANSI color sequences in Windows consoles
+static void enableAnsiColors() {
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut == INVALID_HANDLE_VALUE) return;
+    DWORD mode = 0;
+    if (!GetConsoleMode(hOut, &mode)) return;
+    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, mode);
+}
+#endif
+
 // Display dashboard header
 void displayDashboardHeader(string role) {
     clearScreen();
     cout << "\n";
-    cout << "========================================" << endl;
-    cout << "    SMART GROCERY MANAGEMENT SYSTEM     " << endl;
-    cout << "========================================" << endl;
-    cout << "       Role: " << role << endl;
-    cout << "========================================" << endl;
+    cout << "+" << string(62, '=') << "+" << endl;
+    cout << "|" << string(62, ' ') << "|" << endl;
+    cout << "|" << setw(41) << "GroceryFlow IMS v2.0" << setw(22) << "|" << endl;
+    cout << "|" << setw(42) << "Professional Platform" << setw(21) << "|" << endl;
+    cout << "|" << setw(48) << "Secure Inventory Management System" << setw(15) << "|" << endl;
+    cout << "|" << string(62, ' ') << "|" << endl;
+    cout << "+" << string(62, '=') << "+" << endl;
+    cout << "\n  Role: [ " << role << " ]  |  Status: [ ACTIVE ] " << endl;
+    cout << string(64, '-') << endl;
 }
 
 // Display admin dashboard
@@ -32,21 +52,22 @@ void showAdminDashboard(Database& db, UserManager& userMgr,
     int choice;
     while (true) {
         displayDashboardHeader("Admin");
-        cout << "\nMain Menu:" << endl;
-        cout << "1. Monitoring Dashboard" << endl;
-        cout << "2. Inventory Management" << endl;
-        cout << "3. User Management" << endl;
-        cout << "4. Supplier Management" << endl;
-        cout << "5. Purchase Order" << endl;
-        cout << "6. Receiving" << endl;
-        cout << "7. Process Sale" << endl;
-        cout << "8. Logout" << endl;
-        cout << "\nSelect option: "; 
+        cout << "\n+" << string(62, '-') << "+" << endl;
+        cout << "|  ADMINISTRATOR MENU" << setw(42) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "|  1. [MONITOR]    Real-Time Monitoring Dashboard" << setw(14) << "|" << endl;
+        cout << "|  2. [INVENTORY]  Inventory & Stock Management" << setw(17) << "|" << endl;
+        cout << "|  3. [USERS]      User & Staff Management" << setw(23) << "|" << endl;
+        cout << "|  4. [SUPPLIERS]  Supplier Management" << setw(27) << "|" << endl;
+        cout << "|  5. [EXIT]       Logout from System" << setw(28) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "+" << string(62, '-') << "+" << endl;
+        cout << "\nSelect option (1-5): "; 
         
-        while (!(cin >> choice) || choice < 1 || choice > 8) {
+        while (!(cin >> choice) || choice < 1 || choice > 5) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-8: ";
+            cout << "Invalid choice! Select 1-5: ";
         }
         cin.ignore(10000, '\n');
 
@@ -54,7 +75,7 @@ void showAdminDashboard(Database& db, UserManager& userMgr,
             dashMgr.showMonitoringDashboard(db);
         } 
         else if (choice == 2) {
-            invMgr.inventoryPage(db);
+            invMgr.inventoryPage(db, &poMgr, &recvMgr, &salesMgr);
         } 
         else if (choice == 3) {
             userMgr.userManagementMenu(db);
@@ -63,17 +84,14 @@ void showAdminDashboard(Database& db, UserManager& userMgr,
             supplierMgr.supplierPage(db);
         } 
         else if (choice == 5) {
-            poMgr.purchaseOrderPage(db);
-        } 
-        else if (choice == 6) {
-            recvMgr.receivingPage(db);
-        } 
-        else if (choice == 7) {
-            salesMgr.salesPage(db, 1);
-        } 
-        else if (choice == 8) {
             clearScreen();
-            cout << "\nLogging out... Thank you for using Smart Grocery Management System!" << endl;
+            cout << "\n" << "+" << string(62, '=') << "+" << endl;
+            cout << "|" << string(62, ' ') << "|" << endl;
+            cout << "|  " << setw(58) << left << "[SUCCESS] Session ended successfully" << "|" << endl;
+            cout << "|  " << setw(58) << left << "Returning to Login Screen..." << "|" << endl;
+            cout << "|" << string(62, ' ') << "|" << endl;
+            cout << "+" << string(62, '=') << "+" << endl;
+            cout << "\n";
             break;
         }
     }
@@ -89,20 +107,21 @@ void showStaffDashboard(Database& db, UserManager& userMgr,
     int choice;
     while (true) {
         displayDashboardHeader("Staff");
-        cout << "\nMain Menu:" << endl;
-        cout << "1. Monitoring Dashboard" << endl;
-        cout << "2. Inventory Management" << endl;
-        cout << "3. Supplier Management" << endl;
-        cout << "4. Purchase Order" << endl;
-        cout << "5. Receiving" << endl;
-        cout << "6. Process Sale" << endl;
-        cout << "7. Logout" << endl;
-        cout << "\nSelect option: "; 
+        cout << "\n+" << string(62, '-') << "+" << endl;
+        cout << "|  STAFF MENU" << setw(50) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "|  1. [MONITOR]    Real-Time Monitoring Dashboard" << setw(14) << "|" << endl;
+        cout << "|  2. [INVENTORY]  Inventory & Stock Management" << setw(17) << "|" << endl;
+        cout << "|  3. [SUPPLIERS]  Supplier Information" << setw(26) << "|" << endl;
+        cout << "|  4. [EXIT]       Logout from System" << setw(28) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "+" << string(62, '-') << "+" << endl;
+        cout << "\nSelect option (1-4): "; 
         
-        while (!(cin >> choice) || choice < 1 || choice > 7) {
+        while (!(cin >> choice) || choice < 1 || choice > 4) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-7: ";
+            cout << "Invalid choice! Select 1-4: ";
         }
         cin.ignore(10000, '\n');
 
@@ -110,23 +129,20 @@ void showStaffDashboard(Database& db, UserManager& userMgr,
             dashMgr.showMonitoringDashboard(db);
         } 
         else if (choice == 2) {
-            invMgr.inventoryPage(db);
+            invMgr.inventoryPage(db, &poMgr, &recvMgr, &salesMgr);
         } 
         else if (choice == 3) {
             supplierMgr.supplierPage(db);
         } 
         else if (choice == 4) {
-            poMgr.purchaseOrderPage(db);
-        } 
-        else if (choice == 5) {
-            recvMgr.receivingPage(db);
-        } 
-        else if (choice == 6) {
-            salesMgr.salesPage(db, 1);
-        } 
-        else if (choice == 7) {
             clearScreen();
-            cout << "\nLogging out... Thank you for using Smart Grocery Management System!" << endl;
+            cout << "\n" << "+" << string(62, '=') << "+" << endl;
+            cout << "|" << string(62, ' ') << "|" << endl;
+            cout << "|  " << setw(58) << left << "[SUCCESS] Session ended successfully" << "|" << endl;
+            cout << "|  " << setw(58) << left << "Returning to Login Screen..." << "|" << endl;
+            cout << "|" << string(62, ' ') << "|" << endl;
+            cout << "+" << string(62, '=') << "+" << endl;
+            cout << "\n";
             break;
         }
     }
@@ -152,10 +168,21 @@ int main() {
         PurchaseOrderManager poMgr;
         ReceivingManager recvMgr;
 
+        #ifdef _WIN32
+        enableAnsiColors();
+        #endif
+
         // Main application loop - allows return to login after logout
         while (true) {
             clearScreen();
-            cout << "\n=== Smart Grocery Management System ===" << endl;
+            cout << "\n" << "+" << string(62, '=') << "+" << endl;
+            cout << "|" << string(62, ' ') << "|" << endl;
+            cout << "|  " << setw(58) << left << "GroceryFlow IMS v2.0" << "|" << endl;
+            cout << "|  " << setw(58) << left << "Professional Platform" << "|" << endl;
+            cout << "|  " << setw(58) << left << "Secure Inventory Management System" << "|" << endl;
+            cout << "|" << string(62, ' ') << "|" << endl;
+            cout << "+" << string(62, '=') << "+" << endl;
+            cout << "\n+ LOGIN" << string(55, ' ') << "+" << endl;
             
             // 1. Authenticate
             string role = userMgr.login(db);
@@ -163,7 +190,12 @@ int main() {
             if (role == "") {
                 // User chose to exit from login
                 clearScreen();
-                cout << "\nThank you for using Smart Grocery Management System!" << endl;
+                cout << "\n" << "+" << string(62, '=') << "+" << endl;
+                cout << "|" << string(62, ' ') << "|" << endl;
+                cout << "|  " << setw(58) << left << "Thank you for using GroceryFlow IMS!" << "|" << endl;
+                cout << "|" << string(62, ' ') << "|" << endl;
+                cout << "+" << string(62, '=') << "+" << endl;
+                cout << "\nApplication closed. Have a great day!" << endl;
                 cout << "Press Enter to exit...";
                 cin.get();
                 break;

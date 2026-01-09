@@ -35,6 +35,7 @@ public:
     void createPurchaseOrder(Database& db);
     void viewAllPurchaseOrders(Database& db);
     void viewPurchaseOrderDetails(Database& db);
+    void receivePurchaseOrder(Database& db);
     void purchaseOrderMenu(Database& db);
     
     // Purchase order page with clean layout

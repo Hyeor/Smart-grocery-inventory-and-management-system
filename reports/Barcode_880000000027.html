@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        @media print {
+            body { margin: 10mm; }
+            .download-button { display: none; }
+        }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f5f5f5;
+        }
+        .barcode-container {
+            background: white;
+            padding: 30px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 400px;
+        }
+        .product-info {
+            margin-bottom: 20px;
+        }
+        .product-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .product-detail {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin: 3px 0;
+        }
+        .barcode-display {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        #barcode {
+            max-width: 100%;
+        }
+        #barcodeCanvas {
+            display: none;
+        }
+        .barcode-label {
+            font-size: 10px;
+            color: #95a5a6;
+            margin-top: 10px;
+        }
+        .price {
+            font-size: 20px;
+            font-weight: bold;
+            color: #27ae60;
+            margin: 15px 0;
+        }
+        .download-button {
+            margin: 10px 5px;
+            padding: 10px 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .download-button:hover {
+            background: #229954;
+        }
+        .download-button.png {
+            background: #3498db;
+        }
+        .download-button.png:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="barcode-container">
+        <div class="product-info">
+            <div class="product-name">Jasmine Rice 5kg</div>
+        </div>
+
+        <div class="barcode-display">
+            <svg id="barcode"></svg>
+            <canvas id="barcodeCanvas"></canvas>
+            <div class="barcode-label">SCANNABLE BARCODE</div>
+        </div>
+
+        <div class="price">RM 32.00</div>
+
+        <button class="download-button png" onclick="downloadBarcode('png')">Download as PNG</button>
+        <button class="download-button" onclick="downloadBarcode('jpg')">Download as JPG</button>
+    </div>
+
+    <script>
+        // Generate barcode using JsBarcode
+        JsBarcode('#barcode', '880000000027', {
+            format: 'CODE128',
+            width: 2,
+            height: 80,
+            displayValue: true,
+            fontSize: 16,
+            margin: 10,
+            background: '#ffffff'
+        });
+
+        function downloadBarcode(format) {
+            const canvas = document.getElementById('barcodeCanvas');
+            const ctx = canvas.getContext('2d');
+            const container = document.querySelector('.barcode-container');
+            
+            // Set canvas size
+            canvas.width = 400;
+            canvas.height = 300;
+            
+            // Fill white background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw product name
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Jasmine Rice 5kg', 200, 30);
+            
+            
+            // Get barcode SVG and convert to image
+            const svg = document.getElementById('barcode');
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const img = new Image();
+            
+            img.onload = function() {
+                // Draw barcode image centered
+                const barcodeX = (canvas.width - img.width) / 2;
+                ctx.drawImage(img, barcodeX, 90);
+                
+                // Draw label
+                ctx.fillStyle = '#95a5a6';
+                ctx.font = '10px Arial';
+                ctx.fillText('SCANNABLE BARCODE', 200, 200);
+                
+                // Draw price
+                ctx.fillStyle = '#27ae60';
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText('RM 32.00', 200, 240);
+                
+                // Download image
+                const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+                const link = document.createElement('a');
+                link.download = 'Barcode_880000000027.' + format;
+                link.href = canvas.toDataURL(mimeType, 0.95);
+                link.click();
+            };
+            
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        }
+    </script>
+</body>
+</html>

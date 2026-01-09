@@ -1,9 +1,9 @@
 @echo off
-REM Quick Compile Script for Smart Grocery Management System
+REM Quick Compile Script for GroceryFlow IMS
 REM Compiles all source files into main.exe in project root
 
 echo ========================================
-echo   Smart Grocery - Quick Compiler
+echo   GroceryFlow IMS - Quick Compiler
 echo ========================================
 echo.
 

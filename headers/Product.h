@@ -8,6 +8,11 @@
 
 using namespace std;
 
+// Forward declarations
+class PurchaseOrderManager;
+class ReceivingManager;
+class SalesManager;
+
 class InventoryManager {
 public:
     // CREATE - Add new product
@@ -28,8 +33,18 @@ public:
     // Admin menu for CRUD operations
     void adminCRUDMenu(Database& db);
     
-    // Inventory page with full CRUD menu
-    void inventoryPage(Database& db);
+    // Stocks submenu - Contains all product operations
+    void stocksMenu(Database& db);
+    
+    // Transaction Products - Show PO and stock transactions
+    void viewTransactionProducts(Database& db);
+    
+    // Print Barcode - Display and save barcode as image/document
+    void printBarcode(Database& db);
+    
+    // Inventory page with all submodules
+    void inventoryPage(Database& db, PurchaseOrderManager* poMgr = nullptr, 
+                      ReceivingManager* recvMgr = nullptr, SalesManager* salesMgr = nullptr);
 };
 
 #endif
