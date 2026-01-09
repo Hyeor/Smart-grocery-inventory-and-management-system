@@ -749,6 +749,19 @@ void InventoryManager::deleteProduct(Database& db) {
     getline(cin, confirmName);
     
     if (confirmName == productName) {
+        // Reconfirmation before proceeding with deletion
+        cout << "\n" << string(50, '=') << endl;
+        cout << "Are you sure you want to delete? Once you delete,\n";
+        cout << "it cannot be reverted back.\n";
+        cout << string(50, '=') << endl;
+        cout << "\nEnter YES to confirm or NO to cancel: ";
+        string finalConfirm;
+        getline(cin, finalConfirm);
+        
+        if (finalConfirm != "YES") {
+            cout << "\n[INFO] Deletion cancelled." << endl;
+            return;
+        }
         // Escape single quotes in product name
         string escapedName = productName;
         size_t pos = 0;

@@ -26,13 +26,14 @@ public:
     void processSale(Database& db, int userID);
     void salesPage(Database& db, int userID);
     void cashierMode(Database& db, int userID);
-    void scanBarcode(Database& db, const string& barcode, int& quantity);
+    void scanBarcode(Database& db, const string& barcode, int quantity = 1);
     void displayCart();
     void removeFromCart(int index);
     void clearCart();
     double getCartTotal();
     void processPayment(Database& db, int userID);
-    void generateReceipt(int userID, double totalAmount);
+    void generateReceipt(int userID, double subtotal, double taxAmount, double totalAmount);
+    void generateMonthlySalesReport(Database& db, int userID, const string& month, const string& year);
 };
 
 #endif

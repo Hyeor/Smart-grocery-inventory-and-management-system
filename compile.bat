@@ -22,7 +22,7 @@ echo Compiling project...
     -I"../headers" ^
     -I"C:/Program Files/MySQL/MySQL Server 9.5/include" ^
     -L"C:/Program Files/MySQL/MySQL Server 9.5/lib" ^
-    -lmysql
+    -lmysql -lgdi32 -lcomdlg32
 
 if %ERRORLEVEL% EQU 0 (
     echo.
