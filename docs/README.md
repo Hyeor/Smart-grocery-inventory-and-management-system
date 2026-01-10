@@ -1,4 +1,4 @@
-# Smart Grocery Management System
+# GROCERYFLOW IMS
 
 A C++ project for managing grocery store inventory, sales, and user authentication using MySQL.
 
