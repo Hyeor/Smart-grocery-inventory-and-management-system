@@ -218,17 +218,16 @@ void DashboardManager::showMonitoringDashboard(Database& db) {
         cout << "| MONITORING OPTIONS" << setw(42) << "|" << endl;
         cout << "|" << string(62, ' ') << "|" << endl;
         cout << "|  1. [REFRESH]  Update Dashboard Data" << setw(26) << "|" << endl;
-        cout << "|  2. [ALERT]    Set Low Stock Warning Level" << setw(20) << "|" << endl;
-        cout << "|  3. [BACK]     Return to Main Menu" << setw(28) << "|" << endl;
+        cout << "|  2. [BACK]     Return to Main Menu" << setw(28) << "|" << endl;
         cout << "|" << string(62, ' ') << "|" << endl;
         cout << "+-" << string(60, '-') << "-+" << endl;
-        cout << "\nSelect option (1-3): ";
+        cout << "\nSelect option (1-2): ";
         cout << "Select option: ";
         
-        while (!(cin >> choice) || choice < 1 || choice > 3) {
+        while (!(cin >> choice) || choice < 1 || choice > 2) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-3: ";
+            cout << "Invalid choice! Select 1-2: ";
         }
         cin.ignore(10000, '\n');
         
@@ -237,23 +236,6 @@ void DashboardManager::showMonitoringDashboard(Database& db) {
             continue;
         }
         else if (choice == 2) {
-            int threshold;
-            cout << "Enter low stock threshold (current: 5 units): ";
-            while (!(cin >> threshold) || threshold < 1) {
-                cin.clear();
-                cin.ignore(10000, '\n');
-                cout << "Invalid input! Enter a valid threshold: ";
-            }
-            cin.ignore(10000, '\n');
-            
-            system("cls");
-            showInventorySummary(db);
-            showLowStockItems(db, threshold);
-            
-            cout << "\nPress Enter to continue...";
-            cin.get();
-        }
-        else if (choice == 3) {
             break;
         }
     }

@@ -5,6 +5,8 @@
 #include <fstream>
 #include <stdexcept>
 #include <ctime>
+#include <sstream>
+#include <cctype>
 #include <mysql.h>
 #ifdef _WIN32
 #include <windows.h>
@@ -21,6 +23,100 @@ using namespace std;
 #define COLOR_CYAN      "\033[36m"
 
 constexpr double SST_RATE = 0.06; // 6% SST applied to cart totals
+
+namespace {
+bool parseDate(const string& dateStr, int& year, int& month, int& day) {
+    if (dateStr.size() != 10 || dateStr[4] != '-' || dateStr[7] != '-') {
+        return false;
+    }
+
+    for (size_t i = 0; i < dateStr.size(); ++i) {
+        if (i == 4 || i == 7) {
+            continue;
+        }
+        if (!isdigit(static_cast<unsigned char>(dateStr[i]))) {
+            return false;
+        }
+    }
+
+    year = stoi(dateStr.substr(0, 4));
+    month = stoi(dateStr.substr(5, 2));
+    day = stoi(dateStr.substr(8, 2));
+
+    tm t{};
+    t.tm_year = year - 1900;
+    t.tm_mon = month - 1;
+    t.tm_mday = day;
+    t.tm_isdst = -1;
+
+    time_t ts = mktime(&t);
+    if (ts == -1) {
+        return false;
+    }
+
+    tm* validated = localtime(&ts);
+    return validated && validated->tm_year == t.tm_year && validated->tm_mon == t.tm_mon && validated->tm_mday == t.tm_mday;
+}
+
+string formatDateString(int year, int month, int day) {
+    stringstream ss;
+    ss << setw(4) << setfill('0') << year << "-" << setw(2) << month << "-" << setw(2) << day;
+    return ss.str();
+}
+
+string addOneDay(const string& dateStr) {
+    int year = 0, month = 0, day = 0;
+    if (!parseDate(dateStr, year, month, day)) {
+        return "";
+    }
+
+    tm t{};
+    t.tm_year = year - 1900;
+    t.tm_mon = month - 1;
+    t.tm_mday = day + 1;
+    t.tm_isdst = -1;
+
+    time_t ts = mktime(&t);
+    if (ts == -1) {
+        return "";
+    }
+
+    tm* next = localtime(&ts);
+    if (!next) {
+        return "";
+    }
+
+    return formatDateString(next->tm_year + 1900, next->tm_mon + 1, next->tm_mday);
+}
+
+bool isStartBeforeOrEqual(const string& startDate, const string& endDate) {
+    int sy = 0, sm = 0, sd = 0, ey = 0, em = 0, ed = 0;
+    if (!parseDate(startDate, sy, sm, sd) || !parseDate(endDate, ey, em, ed)) {
+        return false;
+    }
+
+    tm st{};
+    st.tm_year = sy - 1900;
+    st.tm_mon = sm - 1;
+    st.tm_mday = sd;
+    st.tm_isdst = -1;
+
+    tm et{};
+    et.tm_year = ey - 1900;
+    et.tm_mon = em - 1;
+    et.tm_mday = ed;
+    et.tm_isdst = -1;
+
+    time_t startTs = mktime(&st);
+    time_t endTs = mktime(&et);
+
+    if (startTs == -1 || endTs == -1) {
+        return false;
+    }
+
+    return difftime(endTs, startTs) >= 0;
+}
+} // namespace
 
 // Scan barcode and add to cart
 void SalesManager::scanBarcode(Database& db, const string& barcode, int quantity) {
@@ -561,6 +657,294 @@ void SalesManager::generateMonthlySalesReport(Database& db, int userID, const st
     }
 }
 
+// Generate custom date range sales report
+void SalesManager::generateRangeSalesReport(Database& db, int userID, const string& startDate, const string& endDate) {
+    try {
+        if (!db.conn) {
+            throw runtime_error("Database connection is not available");
+        }
+
+        int sy = 0, sm = 0, sd = 0, ey = 0, em = 0, ed = 0;
+        if (!parseDate(startDate, sy, sm, sd) || !parseDate(endDate, ey, em, ed)) {
+            throw runtime_error("Invalid date range provided");
+        }
+
+        tm st{};
+        st.tm_year = sy - 1900;
+        st.tm_mon = sm - 1;
+        st.tm_mday = sd;
+        st.tm_isdst = -1;
+
+        tm et{};
+        et.tm_year = ey - 1900;
+        et.tm_mon = em - 1;
+        et.tm_mday = ed;
+        et.tm_isdst = -1;
+
+        time_t startTs = mktime(&st);
+        time_t endTs = mktime(&et);
+
+        if (startTs == -1 || endTs == -1 || difftime(endTs, startTs) < 0) {
+            throw runtime_error("Start date must not be after end date");
+        }
+
+        int rangeDays = static_cast<int>(difftime(endTs, startTs) / (60 * 60 * 24)) + 1;
+
+        string endDateExclusive = addOneDay(endDate);
+        if (endDateExclusive.empty()) {
+            throw runtime_error("Failed to process end date range");
+        }
+
+        // Get user name for report header
+        string userName = "Staff";
+        string getUserQuery = "SELECT username FROM User WHERE user_id = " + to_string(userID);
+        if (mysql_query(db.conn, getUserQuery.c_str()) == 0) {
+            MYSQL_RES* userRes = mysql_store_result(db.conn);
+            if (userRes) {
+                MYSQL_ROW userRow = mysql_fetch_row(userRes);
+                if (userRow && userRow[0]) {
+                    userName = userRow[0];
+                }
+                mysql_free_result(userRes);
+            }
+        }
+
+        // Query to get sales data for the custom range
+        string salesQuery = "SELECT COUNT(*) as total_transactions, "
+                           "COALESCE(SUM(total_amount), 0) as total_revenue, "
+                           "COALESCE(SUM(profit), 0) as total_profit "
+                           "FROM Sales "
+                           "WHERE sale_date >= '" + startDate + "' AND sale_date < '" + endDateExclusive + "'";
+
+        if (mysql_query(db.conn, salesQuery.c_str())) {
+            throw runtime_error("Failed to fetch sales data: " + string(mysql_error(db.conn)));
+        }
+
+        MYSQL_RES* salesRes = mysql_store_result(db.conn);
+        if (!salesRes) {
+            throw runtime_error("Failed to store sales result set");
+        }
+
+        MYSQL_ROW salesRow = mysql_fetch_row(salesRes);
+
+        int totalTransactions = 0;
+        double totalRevenue = 0.0;
+        double totalProfit = 0.0;
+
+        if (salesRow) {
+            totalTransactions = salesRow[0] ? stoi(salesRow[0]) : 0;
+            totalRevenue = salesRow[1] ? stod(salesRow[1]) : 0.0;
+            totalProfit = salesRow[2] ? stod(salesRow[2]) : 0.0;
+        }
+        mysql_free_result(salesRes);
+
+        // Calculate total cost from revenue and profit
+        double totalCost = totalRevenue - totalProfit;
+
+        // Calculate profit margin
+        double profitMargin = (totalRevenue > 0) ? (totalProfit / totalRevenue) * 100 : 0.0;
+
+        // Calculate average transaction value
+        double avgTransactionValue = (totalTransactions > 0) ? totalRevenue / totalTransactions : 0.0;
+
+        // Calculate total tax collected (6% SST from revenue)
+        double totalTaxCollected = totalRevenue * (SST_RATE / (1 + SST_RATE));
+
+        // Get total items sold
+        string itemsQuery = "SELECT COUNT(*) FROM Sales WHERE sale_date >= '" + startDate + "' AND sale_date < '" + endDateExclusive + "'";
+        int totalItemsSold = 0;
+
+        if (mysql_query(db.conn, itemsQuery.c_str()) == 0) {
+            MYSQL_RES* itemsRes = mysql_store_result(db.conn);
+            if (itemsRes) {
+                MYSQL_ROW itemsRow = mysql_fetch_row(itemsRes);
+                if (itemsRow && itemsRow[0]) {
+                    totalItemsSold = stoi(itemsRow[0]);
+                }
+                mysql_free_result(itemsRes);
+            }
+        }
+
+        double totalDiscounts = 0.0;
+
+        // Generate timestamp
+        time_t now = time(0);
+        struct tm* timeinfo = localtime(&now);
+        char dateBuffer[20];
+        char timestampBuffer[30];
+        strftime(dateBuffer, sizeof(dateBuffer), "%Y%m%d", timeinfo);
+        strftime(timestampBuffer, sizeof(timestampBuffer), "%d-%m-%Y %H:%M:%S", timeinfo);
+
+        // Generate report ID
+        string reportID = "RPT-" + string(dateBuffer) + "-RANGE";
+
+        string rangeToken = startDate + "_to_" + endDate;
+        string defaultFilename = "Sales_Report_" + rangeToken + ".pdf";
+        string pdfFilename;
+        string htmlTempFile = "reports/temp_report_" + rangeToken + ".html";
+
+        #ifdef _WIN32
+        // Show Windows Save File Dialog for PDF
+        char szFile[260] = {0};
+        strcpy(szFile, defaultFilename.c_str());
+
+        OPENFILENAMEA ofn;
+        ZeroMemory(&ofn, sizeof(ofn));
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = NULL;
+        ofn.lpstrFile = szFile;
+        ofn.nMaxFile = sizeof(szFile);
+        ofn.lpstrFilter = "PDF Files (*.pdf)\0*.pdf\0All Files (*.*)\0*.*\0";
+        ofn.nFilterIndex = 1;
+        ofn.lpstrFileTitle = NULL;
+        ofn.nMaxFileTitle = 0;
+        ofn.lpstrInitialDir = NULL;
+        ofn.lpstrTitle = "Save Sales Report (Date Range) as PDF";
+        ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+        ofn.lpstrDefExt = "pdf";
+
+        if (GetSaveFileNameA(&ofn) == TRUE) {
+            pdfFilename = string(ofn.lpstrFile);
+            if (pdfFilename.length() < 4 || pdfFilename.substr(pdfFilename.length() - 4) != ".pdf") {
+                pdfFilename += ".pdf";
+            }
+        } else {
+            cout << COLOR_YELLOW << "\n[INFO] Save cancelled by user" << COLOR_RESET << endl;
+            return;
+        }
+
+        system("if not exist reports mkdir reports");
+        #else
+        system("mkdir -p reports");
+        pdfFilename = "reports/Sales_Report_" + rangeToken + ".pdf";
+        #endif
+
+        ofstream report(htmlTempFile);
+        if (!report.is_open()) {
+            cout << COLOR_RED << "[ERROR] Could not create temporary HTML file" << COLOR_RESET << endl;
+            return;
+        }
+
+        // Write HTML report
+        report << "<!DOCTYPE html>\n";
+        report << "<html>\n<head>\n";
+        report << "<meta charset=\"UTF-8\">\n";
+        report << "<title>Sales Report - " << startDate << " to " << endDate << "</title>\n";
+        report << "<style>\n";
+        report << "body { font-family: Arial, sans-serif; margin: 40px; }\n";
+        report << ".header { border: 3px solid #000; padding: 20px; text-align: center; margin-bottom: 30px; }\n";
+        report << ".header h1 { margin: 5px 0; font-size: 24px; }\n";
+        report << ".header h2 { margin: 5px 0; font-size: 20px; }\n";
+        report << ".info-section { border: 2px solid #000; padding: 15px; margin-bottom: 30px; }\n";
+        report << ".info-line { margin: 5px 0; }\n";
+        report << "table { width: 100%; border-collapse: collapse; margin-top: 20px; }\n";
+        report << "th { background-color: #333; color: white; padding: 12px; text-align: left; border: 1px solid #000; }\n";
+        report << "td { padding: 10px; border: 1px solid #000; }\n";
+        report << ".metric-value { font-weight: bold; color: #0066cc; }\n";
+        report << "h3 { margin-top: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }\n";
+        report << "@media print { .no-print { display: none; } }\n";
+        report << "</style>\n";
+        report << "</head>\n<body>\n";
+
+        // Header Section
+        report << "<div class=\"header\">\n";
+        report << "<h1>GROCERYFLOW IMS</h1>\n";
+        report << "<h2>SALES REPORT (DATE RANGE)</h2>\n";
+        report << "</div>\n";
+
+        // Report Information
+        report << "<div class=\"info-section\">\n";
+        report << "<div class=\"info-line\"><strong>Report Period:</strong> " << startDate << " to " << endDate << "</div>\n";
+        report << "<div class=\"info-line\"><strong>Date Range:</strong> [" << startDate << "] to [" << endDate << "]</div>\n";
+        report << "<div class=\"info-line\"><strong>Range Length:</strong> " << rangeDays << " day(s)</div>\n";
+        report << "<div class=\"info-line\"><strong>Generated By:</strong> " << userName << " ([Staff ID: " << userID << "])</div>\n";
+        report << "<div class=\"info-line\"><strong>Generated On:</strong> [" << timestampBuffer << "]</div>\n";
+        report << "<div class=\"info-line\"><strong>Report ID:</strong> [" << reportID << "]</div>\n";
+        report << "</div>\n";
+
+        // Executive Summary
+        report << "<table>\n";
+
+        report << "<tr><td><strong>Total Transactions</strong></td><td class=\"metric-value\">" 
+               << totalTransactions << "</td></tr>\n";
+
+        report << "<tr><td><strong>Total Revenue</strong></td><td class=\"metric-value\">RM " 
+               << fixed << setprecision(2) << totalRevenue << "</td></tr>\n";
+
+        report << "<tr><td><strong>Total Cost</strong></td><td class=\"metric-value\">RM " 
+               << fixed << setprecision(2) << totalCost << "</td></tr>\n";
+
+        report << "<tr><td><strong>Gross Profit</strong></td><td class=\"metric-value\">RM " 
+               << fixed << setprecision(2) << totalProfit << "</td></tr>\n";
+
+        report << "<tr><td><strong>Profit Margin %</strong></td><td class=\"metric-value\">" 
+               << fixed << setprecision(2) << profitMargin << "%</td></tr>\n";
+
+        report << "<tr><td><strong>Average Transaction Value</strong></td><td class=\"metric-value\">RM " 
+               << fixed << setprecision(2) << avgTransactionValue << "</td></tr>\n";
+
+        report << "<tr><td><strong>Total Items Sold</strong></td><td class=\"metric-value\">" 
+               << totalItemsSold << "</td></tr>\n";
+
+        report << "<tr><td><strong>Total Tax Collected</strong></td><td class=\"metric-value\">RM " 
+               << fixed << setprecision(2) << totalTaxCollected << "</td></tr>\n";
+
+        report << "</table>\n";
+
+        report << "</body>\n</html>";
+        report.close();
+
+        #ifdef _WIN32
+        string wkhtmltopdfCmd = "wkhtmltopdf --quiet --enable-local-file-access --page-size A4 --margin-top 10mm --margin-bottom 10mm --margin-left 10mm --margin-right 10mm \"" + htmlTempFile + "\" \"" + pdfFilename + "\" >nul 2>&1";
+        int result = system(wkhtmltopdfCmd.c_str());
+
+        if (result != 0) {
+            cout << COLOR_YELLOW << "\n[INFO] wkhtmltopdf not found. Opening in browser..." << COLOR_RESET << endl;
+            cout << COLOR_YELLOW << "Please use browser's Print function and select 'Save as PDF'" << COLOR_RESET << endl;
+            cout << COLOR_YELLOW << "Save to: " << pdfFilename << COLOR_RESET << endl;
+
+            string openCmd = "start \"\" \"" + htmlTempFile + "\"";
+            system(openCmd.c_str());
+
+            cout << "\n[INFO] Temporary HTML saved. Please print to PDF manually." << endl;
+            cout << "Target PDF location: " << pdfFilename << endl;
+        } else {
+            remove(htmlTempFile.c_str());
+
+            cout << COLOR_GREEN << "\n[SUCCESS] Range Sales Report Generated as PDF!" << COLOR_RESET << endl;
+            cout << "PDF saved to: " << pdfFilename << endl;
+        }
+        #else
+        string wkhtmltopdfCmd = "wkhtmltopdf --quiet --enable-local-file-access --page-size A4 " + htmlTempFile + " " + pdfFilename + " 2>/dev/null";
+        int result = system(wkhtmltopdfCmd.c_str());
+
+        if (result == 0) {
+            remove(htmlTempFile.c_str());
+            cout << COLOR_GREEN << "\n[SUCCESS] Range Sales Report Generated as PDF!" << COLOR_RESET << endl;
+            cout << "PDF saved to: " << pdfFilename << endl;
+        } else {
+            cout << COLOR_YELLOW << "\n[INFO] wkhtmltopdf not found. HTML file saved instead." << COLOR_RESET << endl;
+            cout << "File: " << htmlTempFile << endl;
+        }
+        #endif
+
+        cout << "\nExecutive Summary:" << endl;
+        cout << "==================" << endl;
+        cout << "Total Transactions: " << totalTransactions << endl;
+        cout << "Total Revenue: RM " << fixed << setprecision(2) << totalRevenue << endl;
+        cout << "Total Cost: RM " << totalCost << endl;
+        cout << "Gross Profit: RM " << totalProfit << endl;
+        cout << "Profit Margin: " << profitMargin << "%" << endl;
+        cout << "Average Transaction: RM " << avgTransactionValue << endl;
+        cout << "Total Items Sold: " << totalItemsSold << endl;
+        cout << "Total Tax Collected: RM " << totalTaxCollected << endl;
+        cout << "Total Discounts: RM " << totalDiscounts << endl;
+
+    } catch (const exception& e) {
+        cerr << COLOR_RED << "\n[ERROR] " << e.what() << COLOR_RESET << endl;
+    }
+}
+
 // Cashier mode - main barcode scanning interface
 void SalesManager::cashierMode(Database& db, int userID) {
     int choice;
@@ -752,15 +1136,14 @@ void SalesManager::salesPage(Database& db, int userID) {
         cout << "========================================" << endl;
         cout << "\nOptions:" << endl;
         cout << "1. Cashier Mode (Barcode Scanner)" << endl;
-        cout << "2. Monthly Sales Report" << endl;
-        cout << "3. Back to Dashboard" << endl;
+        cout << "2. Back to Dashboard" << endl;
         cout << "========================================" << endl;
         cout << "Select option: ";
         
-        while (!(cin >> choice) || choice < 1 || choice > 3) {
+        while (!(cin >> choice) || choice < 1 || choice > 2) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-3: ";
+            cout << "Invalid choice! Select 1-2: ";
         }
         cin.ignore(10000, '\n');
 
@@ -769,47 +1152,6 @@ void SalesManager::salesPage(Database& db, int userID) {
             cashierMode(db, userID);
         }
         else if (choice == 2) {
-            system("cls");
-            cout << "\n";
-            cout << COLOR_CYAN << "========================================" << COLOR_RESET << endl;
-            cout << COLOR_CYAN << "      MONTHLY SALES REPORT              " << COLOR_RESET << endl;
-            cout << COLOR_CYAN << "========================================" << COLOR_RESET << endl;
-            
-            string month, year;
-            cout << "\nEnter Month (01-12): ";
-            getline(cin, month);
-            
-            // Validate month
-            if (month.length() == 1) {
-                month = "0" + month;
-            }
-            int monthInt = stoi(month);
-            if (monthInt < 1 || monthInt > 12) {
-                cout << COLOR_RED << "[ERROR] Invalid month! Please enter 01-12" << COLOR_RESET << endl;
-                cout << "\nPress Enter to continue...";
-                cin.ignore();
-                continue;
-            }
-            
-            cout << "Enter Year (e.g., 2026): ";
-            getline(cin, year);
-            
-            // Validate year
-            int yearInt = stoi(year);
-            if (yearInt < 2000 || yearInt > 2100) {
-                cout << COLOR_RED << "[ERROR] Invalid year!" << COLOR_RESET << endl;
-                cout << "\nPress Enter to continue...";
-                cin.ignore();
-                continue;
-            }
-            
-            cout << "\nGenerating report for " << month << "/" << year << "..." << endl;
-            generateMonthlySalesReport(db, userID, month, year);
-            
-            cout << "\nPress Enter to continue...";
-            cin.ignore();
-        }
-        else if (choice == 3) {
             break;
         }
     }

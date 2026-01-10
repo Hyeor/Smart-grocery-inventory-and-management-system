@@ -45,6 +45,10 @@ public:
     // Inventory page with all submodules
     void inventoryPage(Database& db, PurchaseOrderManager* poMgr = nullptr, 
                       ReceivingManager* recvMgr = nullptr, SalesManager* salesMgr = nullptr);
+    
+    // Inventory admin submenu - Limited to STOCKS, PURCHASE, RECEIVING
+    void inventoryAdminSubmenu(Database& db, PurchaseOrderManager* poMgr = nullptr,
+                              ReceivingManager* recvMgr = nullptr);
 };
 
 #endif

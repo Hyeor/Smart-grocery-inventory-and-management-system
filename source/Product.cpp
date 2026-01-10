@@ -954,7 +954,6 @@ void InventoryManager::printBarcode(Database& db) {
             return;
         }
         
-        int productId = stoi(row[0]);
         string name = row[1];
         string barcode = row[2];
         string category = row[3];
@@ -1228,6 +1227,8 @@ void InventoryManager::adminCRUDMenu(Database& db) {
             }
         }
         else if (choice == 4) {
+            // Show current products first for easier selection
+            viewInventory(db);
             updateProduct(db);
         }
         else if (choice == 5) {
@@ -1351,7 +1352,7 @@ void InventoryManager::stocksMenu(Database& db) {
         cout << "4. Update Product" << endl;
         cout << "5. Delete Product" << endl;
         cout << "6. Transaction Products" << endl;
-        cout << "7. Print Barcode" << endl;
+        cout << "7. Print Barcode Products" << endl;
         cout << "8. Back to Dashboard" << endl;
         cout << "========================================" << endl;
         cout << "Select option: "; 
@@ -1415,6 +1416,9 @@ void InventoryManager::stocksMenu(Database& db) {
             cout << "\n========================================" << endl;
             cout << "          UPDATE PRODUCT               " << endl;
             cout << "========================================\n" << endl;
+            // Show current products first for easier selection
+            viewInventory(db);
+            cout << "\n";
             updateProduct(db);
             cout << "\n";
             viewInventory(db);
@@ -1519,6 +1523,62 @@ void InventoryManager::inventoryPage(Database& db, PurchaseOrderManager* poMgr,
             }
         }
         else if (choice == 5) {
+            break;
+        }
+    }
+}
+
+// Inventory Admin Submenu - For INVENTORY ADMIN role
+void InventoryManager::inventoryAdminSubmenu(Database& db, PurchaseOrderManager* poMgr, 
+                                             ReceivingManager* recvMgr) {
+    int choice;
+    while (true) {
+        system("cls");
+        cout << "\n";
+        cout << "+" << string(62, '=') << "+" << endl;
+        cout << "|" << setw(32) << "INVENTORY MODULE" << setw(31) << "|" << endl;
+        cout << "+" << string(62, '=') << "+" << endl;
+        cout << "\n+ INVENTORY ADMIN OPERATIONS" << string(35, ' ') << "+" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "|  1. [STOCKS]           Manage Product Inventory" << setw(14) << "|" << endl;
+        cout << "|  2. [PURCHASE]         Place Purchase Orders" << setw(18) << "|" << endl;
+        cout << "|  3. [RECEIVING]        Receive Order Items" << setw(20) << "|" << endl;
+        cout << "|  4. [BACK]             Return to Main Menu" << setw(20) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "+" << string(62, '-') << "+" << endl;
+        cout << "\nSelect option (1-4): "; 
+        
+        while (!(cin >> choice) || choice < 1 || choice > 4) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Invalid choice! Select 1-4: ";
+        }
+        cin.ignore(10000, '\n');
+
+        if (choice == 1) {
+            stocksMenu(db);
+        }
+        else if (choice == 2) {
+            // Purchase Order module
+            if (poMgr != nullptr) {
+                poMgr->purchaseOrderPage(db);
+            } else {
+                cout << "[ERROR] Purchase Order manager not available." << endl;
+                cout << "Press Enter to continue...";
+                cin.get();
+            }
+        }
+        else if (choice == 3) {
+            // Receiving module
+            if (recvMgr != nullptr) {
+                recvMgr->receivingPage(db);
+            } else {
+                cout << "[ERROR] Receiving manager not available." << endl;
+                cout << "Press Enter to continue...";
+                cin.get();
+            }
+        }
+        else if (choice == 4) {
             break;
         }
     }

@@ -121,28 +121,38 @@ public:
             
             if (mysql_query(db.conn, query.c_str()) == 0) {
                 MYSQL_RES* res = mysql_store_result(db.conn);
-                MYSQL_ROW row = mysql_fetch_row(res);
-                
-                if (row) {
-                    string role = string(row[0]);
-                    int passwordChangeRequired = atoi(row[1]);
+                if (res) {
+                    MYSQL_ROW row = mysql_fetch_row(res);
                     
-                    cout << "\n[OK] Login Valid! Welcome " << staffID << endl;
-                    
-                    // Update last access time
-                    string updateAccess = "UPDATE User SET last_access = NOW() WHERE staff_id = '" + staffID + "'";
-                    mysql_query(db.conn, updateAccess.c_str());
-                    
-                    // Force password change on first login
-                    if (passwordChangeRequired == 1) {
-                        cout << "\n[NOTICE] You must change your password on first login." << endl;
-                        changePassword(db, staffID);
+                    if (row) {
+                        string role = (row[0] ? string(row[0]) : "");
+                        int passwordChangeRequired = (row[1] ? atoi(row[1]) : 0);
+                        
+                        cout << "\n[OK] Login Valid! Welcome " << staffID << endl;
+                        
+                        // Update last access time
+                        string updateAccess = "UPDATE User SET last_access = NOW() WHERE staff_id = '" + staffID + "'";
+                        mysql_query(db.conn, updateAccess.c_str());
+                        
+                        // Force password change on first login
+                        if (passwordChangeRequired == 1) {
+                            cout << "\n[NOTICE] You must change your password on first login." << endl;
+                            changePassword(db, staffID);
+                        }
+                        
+                        mysql_free_result(res);
+                        return role;
                     }
-                    
                     mysql_free_result(res);
-                    return role;
+                } else {
+                    cout << "\n[ERROR] Database error: " << mysql_error(db.conn) << endl;
+                    attempts--;
+                    continue;
                 }
-                mysql_free_result(res);
+            } else {
+                cout << "\n[ERROR] Database query failed: " << mysql_error(db.conn) << endl;
+                attempts--;
+                continue;
             }
             
             attempts--;
@@ -217,6 +227,10 @@ public:
     void reactivateUser(Database& db);
     void manageStaffStatus(Database& db);
     void userManagementMenu(Database& db);
+    void staffManagementMenu(Database& db);
+    void updateCashierProfile(Database& db);
+    void inventoryAdminMenu(Database& db);
+    void updateInventoryAdminProfile(Database& db);
 };
 
 #endif

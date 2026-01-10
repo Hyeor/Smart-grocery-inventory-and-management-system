@@ -528,6 +528,8 @@ void SupplierManager::supplierPage(Database& db) {
             cout << "\n========================================" << endl;
             cout << "        VIEW SUPPLIER DETAILS           " << endl;
             cout << "========================================\n" << endl;
+            viewSuppliers(db);
+            cout << "\n";
             string supplierName;
             cout << "Enter Supplier Name (0 to go back): ";
             getline(cin, supplierName);
@@ -541,6 +543,8 @@ void SupplierManager::supplierPage(Database& db) {
             cout << "\n========================================" << endl;
             cout << "          UPDATE SUPPLIER              " << endl;
             cout << "========================================\n" << endl;
+            viewSuppliers(db);
+            cout << "\n";
             updateSupplier(db);
             cout << "\n";
             viewSuppliers(db);
@@ -552,6 +556,9 @@ void SupplierManager::supplierPage(Database& db) {
             cout << "\n========================================" << endl;
             cout << "          DELETE SUPPLIER              " << endl;
             cout << "========================================\n" << endl;
+            // Show current suppliers first for easier selection
+            viewSuppliers(db);
+            cout << "\n";
             deleteSupplier(db);
             cout << "\n";
             viewSuppliers(db);

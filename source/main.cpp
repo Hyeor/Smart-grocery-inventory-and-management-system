@@ -56,9 +56,9 @@ void showAdminDashboard(Database& db, UserManager& userMgr,
         cout << "|  ADMINISTRATOR MENU" << setw(42) << "|" << endl;
         cout << "|" << string(62, ' ') << "|" << endl;
         cout << "|  1. [MONITOR]    Real-Time Monitoring Dashboard" << setw(14) << "|" << endl;
-        cout << "|  2. [INVENTORY]  Inventory & Stock Management" << setw(17) << "|" << endl;
-        cout << "|  3. [USERS]      User & Staff Management" << setw(23) << "|" << endl;
-        cout << "|  4. [SUPPLIERS]  Supplier Management" << setw(27) << "|" << endl;
+        cout << "|  2. [SUPPLIERS]  Supplier Management" << setw(27) << "|" << endl;
+        cout << "|  3. [INVENTORY]  Inventory & Stock Management" << setw(17) << "|" << endl;
+        cout << "|  4. [USERS]      User & Staff Management" << setw(23) << "|" << endl;
         cout << "|  5. [EXIT]       Logout from System" << setw(28) << "|" << endl;
         cout << "|" << string(62, ' ') << "|" << endl;
         cout << "+" << string(62, '-') << "+" << endl;
@@ -75,13 +75,13 @@ void showAdminDashboard(Database& db, UserManager& userMgr,
             dashMgr.showMonitoringDashboard(db);
         } 
         else if (choice == 2) {
-            invMgr.inventoryPage(db, &poMgr, &recvMgr, &salesMgr);
+            supplierMgr.supplierPage(db);
         } 
         else if (choice == 3) {
-            userMgr.userManagementMenu(db);
+            invMgr.inventoryPage(db, &poMgr, &recvMgr, &salesMgr);
         } 
         else if (choice == 4) {
-            supplierMgr.supplierPage(db);
+            userMgr.userManagementMenu(db);
         } 
         else if (choice == 5) {
             clearScreen();
@@ -102,7 +102,6 @@ void showStaffDashboard(Database& db, UserManager& userMgr,
                        InventoryManager& invMgr, SalesManager& salesMgr, 
                        SupplierManager& supplierMgr, PurchaseOrderManager& poMgr,
                        ReceivingManager& recvMgr) {
-    (void)userMgr; // Staff doesn't have user management access
     DashboardManager dashMgr;
     int choice;
     while (true) {
@@ -111,8 +110,8 @@ void showStaffDashboard(Database& db, UserManager& userMgr,
         cout << "|  STAFF MENU" << setw(50) << "|" << endl;
         cout << "|" << string(62, ' ') << "|" << endl;
         cout << "|  1. [MONITOR]    Real-Time Monitoring Dashboard" << setw(14) << "|" << endl;
-        cout << "|  2. [INVENTORY]  Inventory & Stock Management" << setw(17) << "|" << endl;
-        cout << "|  3. [SUPPLIERS]  Supplier Information" << setw(26) << "|" << endl;
+        cout << "|  2. [SALES]      Sales & Transactions" << setw(27) << "|" << endl;
+        cout << "|  3. [STAFF]      Staff Management" << setw(29) << "|" << endl;
         cout << "|  4. [EXIT]       Logout from System" << setw(28) << "|" << endl;
         cout << "|" << string(62, ' ') << "|" << endl;
         cout << "+" << string(62, '-') << "+" << endl;
@@ -129,12 +128,65 @@ void showStaffDashboard(Database& db, UserManager& userMgr,
             dashMgr.showMonitoringDashboard(db);
         } 
         else if (choice == 2) {
-            invMgr.inventoryPage(db, &poMgr, &recvMgr, &salesMgr);
+            salesMgr.salesPage(db, 0); // Cashier mode (userID 0 for now)
         } 
         else if (choice == 3) {
-            supplierMgr.supplierPage(db);
+            userMgr.staffManagementMenu(db);
         } 
         else if (choice == 4) {
+            clearScreen();
+            cout << "\n" << "+" << string(62, '=') << "+" << endl;
+            cout << "|" << string(62, ' ') << "|" << endl;
+            cout << "|  " << setw(58) << left << "[SUCCESS] Session ended successfully" << "|" << endl;
+            cout << "|  " << setw(58) << left << "Returning to Login Screen..." << "|" << endl;
+            cout << "|" << string(62, ' ') << "|" << endl;
+            cout << "+" << string(62, '=') << "+" << endl;
+            cout << "\n";
+            break;
+        }
+    }
+}
+
+// Inventory Admin Dashboard
+void showInventoryAdminDashboard(Database& db, UserManager& userMgr, 
+                                 InventoryManager& invMgr, SupplierManager& supplierMgr,
+                                 PurchaseOrderManager& poMgr, ReceivingManager& recvMgr) {
+    DashboardManager dashMgr;
+    int choice;
+    while (true) {
+        displayDashboardHeader("Inventory Admin");
+        cout << "\n+" << string(62, '-') << "+" << endl;
+        cout << "|  INVENTORY ADMIN MENU" << setw(40) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "|  1. [MONITOR]    Real-Time Monitoring Dashboard" << setw(14) << "|" << endl;
+        cout << "|  2. [SUPPLIERS]  Supplier Management" << setw(28) << "|" << endl;
+        cout << "|  3. [INVENTORY]  Inventory & Stock Management" << setw(15) << "|" << endl;
+        cout << "|  4. [USERS]      User Profile Management" << setw(22) << "|" << endl;
+        cout << "|  5. [EXIT]       Logout from System" << setw(28) << "|" << endl;
+        cout << "|" << string(62, ' ') << "|" << endl;
+        cout << "+" << string(62, '-') << "+" << endl;
+        cout << "\nSelect option (1-5): "; 
+        
+        while (!(cin >> choice) || choice < 1 || choice > 5) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Invalid choice! Select 1-5: ";
+        }
+        cin.ignore(10000, '\n');
+
+        if (choice == 1) {
+            dashMgr.showMonitoringDashboard(db);
+        }
+        else if (choice == 2) {
+            supplierMgr.supplierPage(db);
+        }
+        else if (choice == 3) {
+            invMgr.inventoryAdminSubmenu(db, &poMgr, &recvMgr);
+        }
+        else if (choice == 4) {
+            userMgr.inventoryAdminMenu(db);
+        }
+        else if (choice == 5) {
             clearScreen();
             cout << "\n" << "+" << string(62, '=') << "+" << endl;
             cout << "|" << string(62, ' ') << "|" << endl;
@@ -204,6 +256,8 @@ int main() {
             // 2. Dashboard Loop based on role
             if (role == "ADMIN") {
                 showAdminDashboard(db, userMgr, invMgr, salesMgr, supplierMgr, poMgr, recvMgr);
+            } else if (role == "INVENTORY ADMIN") {
+                showInventoryAdminDashboard(db, userMgr, invMgr, supplierMgr, poMgr, recvMgr);
             } else {
                 showStaffDashboard(db, userMgr, invMgr, salesMgr, supplierMgr, poMgr, recvMgr);
             }

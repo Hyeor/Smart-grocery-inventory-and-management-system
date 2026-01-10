@@ -34,6 +34,7 @@ public:
     void processPayment(Database& db, int userID);
     void generateReceipt(int userID, double subtotal, double taxAmount, double totalAmount);
     void generateMonthlySalesReport(Database& db, int userID, const string& month, const string& year);
+    void generateRangeSalesReport(Database& db, int userID, const string& startDate, const string& endDate);
 };
 
 #endif
