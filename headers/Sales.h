@@ -24,7 +24,7 @@ private:
     
 public:
     void processSale(Database& db, int userID);
-    void salesPage(Database& db, int userID);
+    void salesPage(Database& db, int userID, const string& userRole = "STAFF");
     void cashierMode(Database& db, int userID);
     void scanBarcode(Database& db, const string& barcode, int quantity = 1);
     void displayCart();

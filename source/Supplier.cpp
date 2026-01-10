@@ -7,6 +7,7 @@
 #include <mysql.h>
 #include "Database.h"
 #include "Supplier.h"
+#include "UI_Helpers.h"
 
 using namespace std;
 
@@ -90,20 +91,24 @@ void SupplierManager::viewSuppliers(Database& db) {
         
         MYSQL_ROW row;
 
-        cout << "\n=== LIST OF SUPPLIERS ===" << endl;
-        cout << "===============================================================================" << endl;
-        cout << "Supplier                | Contact Person      | Status   | Date Created     " << endl;
-        cout << "===============================================================================" << endl;
-        
+        std::vector<std::pair<std::string,int>> cols = {
+            {"Supplier", 24}, {"Contact Person", 20}, {"Status", 10}, {"Date Created", 22}
+        };
+        UI::printTableHeader(cols, "LIST OF SUPPLIERS");
+        int totalWidth = 1; for (auto& c : cols) totalWidth += c.second + 3; totalWidth += 1;
+
         int count = 0;
         while ((row = mysql_fetch_row(res))) {
             count++;
-             // Column order: 0:id, 1:name, 2:address, 3:contact, 4:phone, 5:status, 6:date_created
-             printf("%-23s | %-19s | %-8s | %s\n",
-                 row[1], row[3], row[5], row[6]);
+            std::vector<std::string> cells = {
+                (row[1] ? row[1] : ""),
+                (row[3] ? row[3] : ""),
+                (row[5] ? row[5] : ""),
+                (row[6] ? row[6] : "")
+            };
+            UI::printTableRow(cells, cols);
         }
-        cout << "===============================================================================" << endl;
-        printf("Showing 1 to %d of %d entries\n", count, count);
+        UI::printTableFooter(count, totalWidth);
         
         mysql_free_result(res);
         

@@ -7,6 +7,7 @@
 #include <iomanip>
 #include "Database.h"
 #include "user.h"
+#include "UI_Helpers.h"
 
 using namespace std;
 
@@ -522,120 +523,104 @@ void UserManager::staffManagementMenu(Database& db) {
         cout << "2. Back to Dashboard" << endl;
         cout << "========================================" << endl;
         cout << "Select option: ";
-        
+
         while (!(cin >> choice) || choice < 1 || choice > 2) {
             cin.clear();
             cin.ignore(10000, '\n');
             cout << "Invalid choice! Select 1-2: ";
         }
         cin.ignore(10000, '\n');
-        
+
         if (choice == 1) {
             system("cls");
             cout << "\n========================================" << endl;
-            cout << "    UPDATE STAFF INFORMATION           " << endl;
+            cout << "    UPDATE STAFF INFORMATION          " << endl;
             cout << "========================================\n" << endl;
-            updateCashierProfile(db);
+
+            string staffID;
+            cout << "Enter your Staff ID (0 to go back): ";
+            getline(cin, staffID);
+
+            if (staffID == "0") {
+                return;
+            }
+
+            if (staffID.empty()) {
+                cout << "[ERROR] Staff ID cannot be empty." << endl;
+                return;
+            }
+
+            // Verify staff exists
+            string checkQuery = "SELECT staff_id, full_name, email, phone FROM User WHERE staff_id = '" + staffID + "'";
+            if (mysql_query(db.conn, checkQuery.c_str())) {
+                throw runtime_error("Failed to fetch staff: " + string(mysql_error(db.conn)));
+            }
+
+            MYSQL_RES* res = mysql_store_result(db.conn);
+            if (!res) {
+                throw runtime_error("Failed to store result set");
+            }
+
+            MYSQL_ROW row = mysql_fetch_row(res);
+            if (!row) {
+                cout << "[ERROR] Staff not found." << endl;
+                mysql_free_result(res);
+                return;
+            }
+
+            // Display current info
+            cout << "\n--- Current Information ---" << endl;
+            cout << "Full Name: " << (row[1] ? row[1] : "N/A") << endl;
+            cout << "Email: " << (row[2] ? row[2] : "N/A") << endl;
+            cout << "Phone: " << (row[3] ? row[3] : "N/A") << endl;
+            cout << "----------------------------\n" << endl;
+
+            mysql_free_result(res);
+
+            // Collect updates
+            string newName = "";
+            cout << "Enter new Full Name (or press Enter to skip): ";
+            getline(cin, newName);
+
+            string newEmail = "";
+            cout << "Enter new Email (or press Enter to skip): ";
+            getline(cin, newEmail);
+
+            string newPhone = "";
+            cout << "Enter new Phone Number (or press Enter to skip): ";
+            getline(cin, newPhone);
+
+            // If no updates, return
+            if (newName.empty() && newEmail.empty() && newPhone.empty()) {
+                cout << "[INFO] No changes made." << endl;
+                return;
+            }
+
+            // Apply updates
+            if (!newName.empty()) {
+                string updateQuery = "UPDATE User SET full_name = '" + newName + "' WHERE staff_id = '" + staffID + "'";
+                db.executeQuery(updateQuery);
+                cout << "[OK] Full Name updated." << endl;
+            }
+
+            if (!newEmail.empty()) {
+                string updateQuery = "UPDATE User SET email = '" + newEmail + "' WHERE staff_id = '" + staffID + "'";
+                db.executeQuery(updateQuery);
+                cout << "[OK] Email updated." << endl;
+            }
+
+            if (!newPhone.empty()) {
+                string updateQuery = "UPDATE User SET phone = '" + newPhone + "' WHERE staff_id = '" + staffID + "'";
+                db.executeQuery(updateQuery);
+                cout << "[OK] Phone Number updated." << endl;
+            }
+
+            cout << "\n[SUCCESS] Profile updated successfully!" << endl;
             cout << "\nPress Enter to continue...";
             cin.ignore();
-        }
-        else if (choice == 2) {
+        } else if (choice == 2) {
             break;
         }
-    }
-}
-
-// Update Cashier Profile - Limited to Full Name, Email, and Phone Number
-void UserManager::updateCashierProfile(Database& db) {
-    try {
-        if (!db.conn) {
-            throw runtime_error("Database connection is not available");
-        }
-        
-        // For now, we'll use admin staff ID (normally this would come from logged-in user)
-        // In a real scenario, pass the logged-in user's ID
-        string staffID;
-        cout << "Enter your Staff ID (0 to go back): ";
-        getline(cin, staffID);
-        
-        if (staffID == "0") {
-            return;
-        }
-        
-        if (staffID.empty()) {
-            cout << "[ERROR] Staff ID cannot be empty." << endl;
-            return;
-        }
-        
-        // Verify staff exists
-        string checkQuery = "SELECT staff_id, full_name, email, phone FROM User WHERE staff_id = '" + staffID + "'";
-        if (mysql_query(db.conn, checkQuery.c_str())) {
-            throw runtime_error("Failed to fetch staff: " + string(mysql_error(db.conn)));
-        }
-        
-        MYSQL_RES* res = mysql_store_result(db.conn);
-        if (!res) {
-            throw runtime_error("Failed to store result set");
-        }
-        
-        MYSQL_ROW row = mysql_fetch_row(res);
-        if (!row) {
-            cout << "[ERROR] Staff not found." << endl;
-            mysql_free_result(res);
-            return;
-        }
-        
-        // Display current info
-        cout << "\n--- Current Information ---" << endl;
-        cout << "Full Name: " << (row[1] ? row[1] : "N/A") << endl;
-        cout << "Email: " << (row[2] ? row[2] : "N/A") << endl;
-        cout << "Phone: " << (row[3] ? row[3] : "N/A") << endl;
-        cout << "----------------------------\n" << endl;
-        
-        mysql_free_result(res);
-        
-        // Collect updates
-        string newName = "";
-        cout << "Enter new Full Name (or press Enter to skip): ";
-        getline(cin, newName);
-        
-        string newEmail = "";
-        cout << "Enter new Email (or press Enter to skip): ";
-        getline(cin, newEmail);
-        
-        string newPhone = "";
-        cout << "Enter new Phone Number (or press Enter to skip): ";
-        getline(cin, newPhone);
-        
-        // If no updates, return
-        if (newName.empty() && newEmail.empty() && newPhone.empty()) {
-            cout << "[INFO] No changes made." << endl;
-            return;
-        }
-        
-        // Apply updates
-        if (!newName.empty()) {
-            string updateQuery = "UPDATE User SET full_name = '" + newName + "' WHERE staff_id = '" + staffID + "'";
-            db.executeQuery(updateQuery);
-            cout << "[OK] Full Name updated." << endl;
-        }
-        
-        if (!newEmail.empty()) {
-            string updateQuery = "UPDATE User SET email = '" + newEmail + "' WHERE staff_id = '" + staffID + "'";
-            db.executeQuery(updateQuery);
-            cout << "[OK] Email updated." << endl;
-        }
-        
-        if (!newPhone.empty()) {
-            string updateQuery = "UPDATE User SET phone = '" + newPhone + "' WHERE staff_id = '" + staffID + "'";
-            db.executeQuery(updateQuery);
-            cout << "[OK] Phone Number updated." << endl;
-        }
-        
-        cout << "\n[SUCCESS] Profile updated successfully!" << endl;
-        
-    } catch (const exception& e) {
-        cerr << "\n[ERROR] " << e.what() << endl;
     }
 }
 

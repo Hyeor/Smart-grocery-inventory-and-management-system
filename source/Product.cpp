@@ -14,6 +14,7 @@
 #include "PurchaseOrder.h"
 #include "Receiving.h"
 #include "Sales.h"
+#include "UI_Helpers.h"
 
 using namespace std;
 
@@ -424,16 +425,12 @@ void InventoryManager::viewInventory(Database& db) {
         
         MYSQL_ROW row;
 
-        cout << "\n" << string(150, '=') << endl;
-        cout << setw(75) << "INVENTORY LIST" << setw(76) << "" << endl;
-        cout << string(150, '=') << endl;
-           cout << left << setw(25) << "Item Name" << " | "
-               << setw(30) << "Category" << " | "
-               << setw(10) << "Cost" << " | "
-               << setw(15) << "Sell Price" << " | "
-               << setw(25) << "Stock quantity" << " | "
-               << setw(20) << "Supplier" << endl;
-        cout << string(150, '=') << endl;
+        std::vector<std::pair<std::string,int>> cols = {
+            {"Item Name", 25}, {"Category", 30}, {"Cost", 10}, {"Sell Price", 15}, {"Stock", 25}, {"Supplier", 20}
+        };
+        UI::printTableHeader(cols, "INVENTORY LIST");
+        int totalWidth = 1; for (auto& c : cols) totalWidth += c.second + 3; totalWidth += 1;
+        int count = 0;
         
         while ((row = mysql_fetch_row(res))) {
             string name = row[2] ? string(row[2]) : "N/A";
@@ -486,21 +483,11 @@ void InventoryManager::viewInventory(Database& db) {
             
             string supplier = row[9] ? string(row[9]) : "N/A";
             
-            // Truncate long strings to fit column widths
-            if (name.length() > 24) name = name.substr(0, 21) + "...";
-            if (category.length() > 29) category = category.substr(0, 26) + "...";
-            if (supplier.length() > 19) supplier = supplier.substr(0, 16) + "...";
-            if (stockDisplay.length() > 24) stockDisplay = stockDisplay.substr(0, 21) + "...";
-            
-            // Use cout with consistent column widths for perfect alignment
-            cout << left << setw(25) << name << " | "
-                 << setw(30) << category << " | "
-                 << setw(10) << cost << " | "
-                 << setw(15) << sellPrice << " | "
-                 << setw(25) << stockDisplay << " | "
-                 << setw(20) << supplier << endl;
+            count++;
+            std::vector<std::string> cells = { name, category, cost, sellPrice, stockDisplay, supplier };
+            UI::printTableRow(cells, cols);
         }
-        cout << string(150, '=') << endl;
+        UI::printTableFooter(count, totalWidth);
         
         mysql_free_result(res);
         

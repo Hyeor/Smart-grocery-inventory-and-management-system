@@ -1126,8 +1126,9 @@ void SalesManager::processSale(Database& db, int userID) {
 }
 
 // Sales Page
-void SalesManager::salesPage(Database& db, int userID) {
+void SalesManager::salesPage(Database& db, int userID, const string& userRole) {
     int choice;
+    int maxChoice = (userRole == "ADMIN") ? 4 : 2;
     while (true) {
         system("cls");
         cout << "\n";
@@ -1136,14 +1137,20 @@ void SalesManager::salesPage(Database& db, int userID) {
         cout << "========================================" << endl;
         cout << "\nOptions:" << endl;
         cout << "1. Cashier Mode (Barcode Scanner)" << endl;
-        cout << "2. Back to Dashboard" << endl;
+        if (userRole == "ADMIN") {
+            cout << "2. Monthly Sales Report" << endl;
+            cout << "3. Range Date Report" << endl;
+            cout << "4. Back to Dashboard" << endl;
+        } else {
+            cout << "2. Back to Dashboard" << endl;
+        }
         cout << "========================================" << endl;
         cout << "Select option: ";
         
-        while (!(cin >> choice) || choice < 1 || choice > 2) {
+        while (!(cin >> choice) || choice < 1 || choice > maxChoice) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "Invalid choice! Select 1-2: ";
+            cout << "Invalid choice! Select 1-" << maxChoice << ": ";
         }
         cin.ignore(10000, '\n');
 
@@ -1151,7 +1158,39 @@ void SalesManager::salesPage(Database& db, int userID) {
             system("cls");
             cashierMode(db, userID);
         }
-        else if (choice == 2) {
+        else if (choice == 2 && userRole == "ADMIN") {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "     MONTHLY SALES REPORT               " << endl;
+            cout << "========================================\n" << endl;
+            string month, year;
+            cout << "Enter Month (1-12): ";
+            getline(cin, month);
+            cout << "Enter Year (YYYY): ";
+            getline(cin, year);
+            if (!month.empty() && !year.empty()) {
+                generateMonthlySalesReport(db, userID, month, year);
+            }
+            cout << "\nPress Enter to continue...";
+            cin.get();
+        }
+        else if (choice == 3 && userRole == "ADMIN") {
+            system("cls");
+            cout << "\n========================================" << endl;
+            cout << "      RANGE DATE SALES REPORT          " << endl;
+            cout << "========================================\n" << endl;
+            string startDate, endDate;
+            cout << "Enter Start Date (YYYY-MM-DD): ";
+            getline(cin, startDate);
+            cout << "Enter End Date (YYYY-MM-DD): ";
+            getline(cin, endDate);
+            if (!startDate.empty() && !endDate.empty()) {
+                generateRangeSalesReport(db, userID, startDate, endDate);
+            }
+            cout << "\nPress Enter to continue...";
+            cin.get();
+        }
+        else if ((choice == 2 && userRole != "ADMIN") || (choice == 4 && userRole == "ADMIN")) {
             break;
         }
     }
